@@ -8,7 +8,7 @@ import (
 )
 
 func TestMakeDevboxSpec(t *testing.T) {
-	got := makeDevboxSpec("herdr-demo-123", config.Default)
+	got := makeDevboxSpec("herdr-demo-123", config.Default, "")
 	want := devboxSpec{
 		Name: "herdr-demo-123", Image: "builtin:agents", Size: "m", AccessMode: "private",
 		AutoStopIdleTimeout: "1h", Repository: repository{Disabled: true},
@@ -22,9 +22,17 @@ func TestMakeDevboxSpec(t *testing.T) {
 func TestMakeDevboxSpecAddsGitHubIntegration(t *testing.T) {
 	cfg := config.Default
 	cfg.SetupGitHub = true
-	got := makeDevboxSpec("herdr-demo-123", cfg)
+	got := makeDevboxSpec("herdr-demo-123", cfg, "")
 	if got.Integrations == nil || !got.Integrations.GitHub.ShareAuth {
 		t.Fatalf("missing integration: %#v", got)
+	}
+}
+
+func TestMakeDevboxSpecAddsRepository(t *testing.T) {
+	got := makeDevboxSpec("herdr-demo-123", config.Default, "github.com/acme/demo")
+	want := repository{URL: "github.com/acme/demo"}
+	if !reflect.DeepEqual(got.Repository, want) {
+		t.Fatalf("got %#v, want %#v", got.Repository, want)
 	}
 }
 

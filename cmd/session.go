@@ -49,6 +49,7 @@ func connectSession(args []string) error {
 	flags := flag.NewFlagSet("connect-session", flag.ContinueOnError)
 	name := flags.String("name", "", "Devbox name")
 	configDir := flags.String("config-dir", "", "plugin configuration directory")
+	repository := flags.String("repository", "", "Git repository to clone when creating the Devbox")
 
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -72,7 +73,7 @@ func connectSession(args []string) error {
 		fmt.Printf("Reconnecting to persistent Namespace Devbox %s...\n", *name)
 	} else {
 		fmt.Printf("Creating persistent Namespace Devbox %s...\n", *name)
-		if err := client.Create(*name, cfg); err != nil {
+		if err := client.Create(*name, cfg, *repository); err != nil {
 			return err
 		}
 	}

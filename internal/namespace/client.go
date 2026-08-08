@@ -26,7 +26,8 @@ type devboxSpec struct {
 }
 
 type repository struct {
-	Disabled bool `json:"disabled"`
+	Disabled bool   `json:"disabled,omitempty"`
+	URL      string `json:"url,omitempty"`
 }
 type session struct {
 	Name    string `json:"name"`
@@ -39,11 +40,15 @@ type githubIntegration struct {
 	ShareAuth bool `json:"share_auth"`
 }
 
-func makeDevboxSpec(name string, cfg config.Config) devboxSpec {
+func makeDevboxSpec(name string, cfg config.Config, repositoryURL string) devboxSpec {
+	repo := repository{Disabled: true}
+	if repositoryURL != "" {
+		repo = repository{URL: repositoryURL}
+	}
 	spec := devboxSpec{
 		Name: name, Image: cfg.Image, Size: cfg.Size, AccessMode: cfg.AccessMode,
 		AutoStopIdleTimeout: cfg.AutoStopIdleTimeout,
-		Repository:          repository{Disabled: true},
+		Repository:          repo,
 		Sessions:            []session{{Name: cfg.SessionName, Command: cfg.Shell}},
 		VolumeSizeGB:        cfg.VolumeSizeGB, Site: cfg.Site,
 	}
@@ -127,8 +132,8 @@ func parseDevboxList(output []byte) ([]devboxSummary, error) {
 	return devboxes, nil
 }
 
-func (c Client) Create(name string, cfg config.Config) error {
-	spec, err := json.Marshal(makeDevboxSpec(name, cfg))
+func (c Client) Create(name string, cfg config.Config, repositoryURL string) error {
+	spec, err := json.Marshal(makeDevboxSpec(name, cfg, repositoryURL))
 	if err != nil {
 		return err
 	}

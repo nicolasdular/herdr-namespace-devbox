@@ -39,3 +39,16 @@ func TestLoadActionInputsUsesWorkspaceRoot(t *testing.T) {
 		t.Fatalf("unexpected action inputs: %#v", inputs)
 	}
 }
+
+func TestNormalizeRepositoryURL(t *testing.T) {
+	tests := map[string]string{
+		"git@github.com:acme/demo.git":     "github.com/acme/demo",
+		"https://github.com/acme/demo.git": "github.com/acme/demo",
+		"https://gitlab.com/acme/demo.git": "https://gitlab.com/acme/demo",
+	}
+	for input, want := range tests {
+		if got := normalizeRepositoryURL(input); got != want {
+			t.Errorf("normalizeRepositoryURL(%q) = %q, want %q", input, got, want)
+		}
+	}
+}
