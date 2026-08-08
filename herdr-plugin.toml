@@ -5,6 +5,9 @@ min_herdr_version = "0.8.0"
 description = "Open a persistent Namespace Devbox terminal in the focused Herdr pane."
 platforms = ["linux", "macos"]
 
+[[build]]
+command = ["sh", "scripts/build.sh"]
+
 [[actions]]
 id = "start-devbox"
 title = "Open workspace Namespace Devbox"
