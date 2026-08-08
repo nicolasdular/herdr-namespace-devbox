@@ -15,6 +15,7 @@ func openDevbox(
 	inputs ActionInputs,
 	actionID string,
 	devboxName string,
+	specPath string,
 ) error {
 	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
 	if err := herdrClient.RenamePane(inputs.PaneID, paneTitle(inputs.Workspace)); err != nil {
@@ -25,7 +26,9 @@ func openDevbox(
 		"--name", devboxName,
 		"--config-dir", inputs.ConfigDir,
 	}
-	if repository := repositoryURL(inputs.Workspace); repository != "" {
+	if specPath != "" {
+		args = append(args, "--devbox-spec", specPath)
+	} else if repository := repositoryURL(inputs.Workspace); repository != "" {
 		args = append(args, "--repository", repository)
 	}
 	if err := herdrClient.RunInPane(

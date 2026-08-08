@@ -145,6 +145,15 @@ func (c Client) Create(name string, cfg config.Config, repositoryURL string) err
 	return nil
 }
 
+func (c Client) CreateFromSpec(name, path string) error {
+	command := c.command("create", "--from", path, "--name", name)
+	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("Namespace could not create Devbox %s", name)
+	}
+	return nil
+}
+
 func (c Client) Connect(name, sessionName string) (int, error) {
 	command := c.command("session", "connect", name, "--session", sessionName)
 	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr

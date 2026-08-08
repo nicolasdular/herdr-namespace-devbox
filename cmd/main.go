@@ -32,13 +32,20 @@ func run(args []string) error {
 		if err != nil {
 			return err
 		}
-		return openDevbox(inputs, "start-devbox", namespace.WorkspaceDevboxName(inputs.Workspace))
+		specPath, specName := namespace.WorkspaceSpec(inputs.Workspace)
+		devboxName := specName
+		if devboxName == "" {
+			devboxName = namespace.WorkspaceDevboxName(inputs.Workspace)
+		}
+		return openDevbox(inputs, "start-devbox", devboxName, specPath)
 	case "new-devbox":
 		inputs, err := loadActionInputs()
 		if err != nil {
 			return err
 		}
-		return openDevbox(inputs, "new-devbox", namespace.NewDevboxName(inputs.Workspace))
+		specPath, _ := namespace.WorkspaceSpec(inputs.Workspace)
+		devboxName := namespace.NewDevboxName(inputs.Workspace)
+		return openDevbox(inputs, "new-devbox", devboxName, specPath)
 	case "connect-session":
 		return connectSession(args[1:])
 	default:

@@ -79,3 +79,5 @@ Create `config.json` there if the defaults need changing:
 ```
 
 Supported sizes are `s`, `m`, `l`, and `xl`. Unknown configuration keys are rejected.
+
+If the workspace contains a `devbox.yaml`, it is passed directly to Namespace for creation instead of generating a spec from the plugin configuration. It must define `name`, which becomes the workspace's default Devbox name.
