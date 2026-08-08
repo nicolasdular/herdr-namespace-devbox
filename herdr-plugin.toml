@@ -21,3 +21,10 @@ title = "Open a new Namespace Devbox"
 description = "Create a new persistent Namespace Devbox without changing this workspace's default Devbox."
 contexts = ["workspace", "pane"]
 command = ["bin/herdr-namespace", "new-devbox"]
+
+[[actions]]
+id = "stop-devbox"
+title = "Stop workspace Namespace Devbox"
+description = "Stop this workspace's default Namespace Devbox."
+contexts = ["workspace", "pane"]
+command = ["bin/herdr-namespace", "stop-devbox"]

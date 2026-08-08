@@ -157,6 +157,13 @@ func (c Client) CreateFromSpec(ctx context.Context, name, path string) error {
 	return nil
 }
 
+func (c Client) Stop(ctx context.Context, name string) error {
+	if err := c.cmd.Run(ctx, "stop", name, "--force"); err != nil {
+		return fmt.Errorf("Namespace could not stop Devbox %s: %w", name, err)
+	}
+	return nil
+}
+
 func (c Client) Connect(ctx context.Context, name, sessionName string) (int, error) {
 	err := c.cmd.Run(ctx, "session", "connect", name, "--session", sessionName)
 	if err == nil {

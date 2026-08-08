@@ -122,6 +122,15 @@ func TestCreateStreamsGeneratedSpecToDevbox(t *testing.T) {
 	require.Contains(t, string(spec), `"url":"github.com/acme/demo"`)
 }
 
+func TestStopForcesNamedDevboxToStop(t *testing.T) {
+	runner := &recordingRunner{}
+	client := testClient(runner)
+
+	require.NoError(t, client.Stop(context.Background(), "herdr-demo-123"))
+	require.Len(t, runner.calls, 1)
+	require.Equal(t, []string{"stop", "herdr-demo-123", "--force"}, runner.calls[0].args)
+}
+
 func TestParseDevboxListAllowsCLIStatusMessages(t *testing.T) {
 	output := []byte("No devbox available yet.\n[{\"name\":\"herdr-project-123\"}]\nA new version is available.\n")
 	devboxes, err := parseDevboxList(output)

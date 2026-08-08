@@ -11,7 +11,16 @@ import (
 
 	"herdr-namespace/internal/command"
 	"herdr-namespace/internal/herdr"
+	"herdr-namespace/internal/namespace"
 )
+
+func workspaceDevbox(workspace string) (name, specPath string) {
+	specPath, name = namespace.WorkspaceSpec(workspace)
+	if name == "" {
+		name = namespace.WorkspaceDevboxName(workspace)
+	}
+	return name, specPath
+}
 
 func openDevbox(
 	ctx context.Context,
