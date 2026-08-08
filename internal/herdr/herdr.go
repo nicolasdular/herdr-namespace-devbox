@@ -1,40 +1,46 @@
 package herdr
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"time"
+
+	"herdr-namespace/internal/command"
 )
 
+const commandTimeout = 15 * time.Second
+
 type Herdr struct {
-	executable string
+	cmd command.Command
 }
 
 func New(executable string) Herdr {
+	return newWithRunner(executable, command.OSRunner{})
+}
+
+func newWithRunner(executable string, runner command.Runner) Herdr {
 	if executable == "" {
 		executable = "herdr"
 	}
-	return Herdr{executable: executable}
+	return Herdr{cmd: command.NewWithRunner(executable, runner)}
 }
 
-func (h Herdr) RenamePane(paneID, title string) error {
-	return h.run("pane", "rename", paneID, title)
+func (h Herdr) RenamePane(ctx context.Context, paneID, title string) error {
+	return h.run(ctx, "pane", "rename", paneID, title)
 }
 
-func (h Herdr) RunInPane(paneID, executable string, args ...string) error {
+func (h Herdr) RunInPane(ctx context.Context, paneID, executable string, args ...string) error {
 	command := []string{"pane", "run", paneID, executable}
-	return h.run(append(command, args...)...)
+	return h.run(ctx, append(command, args...)...)
 }
 
-func (h Herdr) run(args ...string) error {
-	command := exec.Command(h.executable, args...)
-	if err := command.Run(); err != nil {
-		return fmt.Errorf("run %s: %w", h.executable, err)
-	}
-	return nil
+func (h Herdr) run(ctx context.Context, args ...string) error {
+	_, err := h.cmd.Output(ctx, commandTimeout, args...)
+	return err
 }
 
 type Context struct {

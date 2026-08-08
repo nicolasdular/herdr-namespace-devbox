@@ -1,24 +1,28 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"herdr-namespace/internal/command"
 	"herdr-namespace/internal/herdr"
 )
 
 func openDevbox(
+	ctx context.Context,
 	inputs ActionInputs,
 	actionID string,
 	devboxName string,
 	specPath string,
 ) error {
+	runner := command.OSRunner{}
 	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
-	if err := herdrClient.RenamePane(inputs.PaneID, paneTitle(inputs.Workspace)); err != nil {
+	if err := herdrClient.RenamePane(ctx, inputs.PaneID, paneTitle(inputs.Workspace)); err != nil {
 		return err
 	}
 	args := []string{
@@ -28,11 +32,11 @@ func openDevbox(
 	}
 	if specPath != "" {
 		args = append(args, "--devbox-spec", specPath)
-	} else if repository := repositoryURL(inputs.Workspace); repository != "" {
+	} else if repository := repositoryURL(ctx, runner, inputs.Workspace); repository != "" {
 		args = append(args, "--repository", repository)
 	}
 	if err := herdrClient.RunInPane(
-		inputs.PaneID, inputs.PluginExecutable, args...,
+		ctx, inputs.PaneID, inputs.PluginExecutable, args...,
 	); err != nil {
 		return err
 	}
@@ -40,8 +44,9 @@ func openDevbox(
 	return nil
 }
 
-func repositoryURL(workspace string) string {
-	output, err := exec.Command("git", "-C", workspace, "remote", "get-url", "origin").Output()
+func repositoryURL(ctx context.Context, runner command.Runner, workspace string) string {
+	git := command.NewWithRunner("git", runner)
+	output, err := git.Output(ctx, 5*time.Second, "-C", workspace, "remote", "get-url", "origin")
 	if err != nil {
 		return ""
 	}

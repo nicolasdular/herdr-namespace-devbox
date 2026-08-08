@@ -1,13 +1,32 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+type outputRunner struct {
+	executable string
+	args       []string
+	output     []byte
+	err        error
+}
+
+func (r *outputRunner) CombinedOutput(_ context.Context, executable string, args ...string) ([]byte, error) {
+	r.executable = executable
+	r.args = append([]string(nil), args...)
+	return r.output, r.err
+}
+
+func (*outputRunner) Run(context.Context, string, []string, io.Reader, io.Writer, io.Writer) error {
+	panic("unexpected interactive command")
+}
 
 func TestLoadActionInputsUsesWorkspaceRoot(t *testing.T) {
 	configDirectory := t.TempDir()
@@ -39,4 +58,14 @@ func TestNormalizeRepositoryURL(t *testing.T) {
 	for input, want := range tests {
 		require.Equal(t, want, normalizeRepositoryURL(input))
 	}
+}
+
+func TestRepositoryURLBuildsGitCommand(t *testing.T) {
+	runner := &outputRunner{output: []byte("git@github.com:acme/demo.git\n")}
+
+	got := repositoryURL(context.Background(), runner, "/workspace/demo")
+
+	require.Equal(t, "github.com/acme/demo", got)
+	require.Equal(t, "git", runner.executable)
+	require.Equal(t, []string{"-C", "/workspace/demo", "remote", "get-url", "origin"}, runner.args)
 }

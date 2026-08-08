@@ -2,15 +2,20 @@ package namespace
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 
+	"herdr-namespace/internal/command"
 	"herdr-namespace/internal/config"
 )
+
+const probeTimeout = 15 * time.Second
 
 type devboxSpec struct {
 	Name                string        `json:"name"`
@@ -59,26 +64,29 @@ func makeDevboxSpec(name string, cfg config.Config, repositoryURL string) devbox
 }
 
 type Client struct {
-	executable string
+	cmd command.Command
 }
 
 func New() Client {
-	return Client{executable: "devbox"}
+	return Client{
+		cmd: command.New("devbox").WithStreams(os.Stdin, os.Stdout, os.Stderr),
+	}
 }
 
-func (c Client) command(args ...string) *exec.Cmd {
-	return exec.Command(c.executable, args...)
+func (c Client) combinedOutput(ctx context.Context, args ...string) ([]byte, error) {
+	return c.cmd.Output(ctx, probeTimeout, args...)
 }
 
-func (c Client) Preflight() error {
-	if err := c.command("version").Run(); err != nil {
-		return errors.New("Namespace Devbox CLI is unavailable or not working")
+func (c Client) Preflight(ctx context.Context) error {
+	_, err := c.combinedOutput(ctx, "version")
+	if err != nil {
+		return fmt.Errorf("Namespace Devbox CLI is unavailable or not working: %w", err)
 	}
 	return nil
 }
 
-func (c Client) IsAuthenticated() (bool, error) {
-	err := c.command("auth", "check-login").Run()
+func (c Client) IsAuthenticated(ctx context.Context) (bool, error) {
+	_, err := c.combinedOutput(ctx, "auth", "check-login")
 	if err == nil {
 		return true, nil
 	}
@@ -89,17 +97,15 @@ func (c Client) IsAuthenticated() (bool, error) {
 	return false, fmt.Errorf("could not check Namespace authentication: %w", err)
 }
 
-func (c Client) Login() error {
-	command := c.command("login")
-	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
-	if err := command.Run(); err != nil {
-		return errors.New("Namespace login did not complete successfully")
+func (c Client) Login(ctx context.Context) error {
+	if err := c.cmd.Run(ctx, "login"); err != nil {
+		return fmt.Errorf("Namespace login did not complete successfully: %w", err)
 	}
 	return nil
 }
 
-func (c Client) Exists(name string) (bool, error) {
-	output, err := c.command("list", "-o", "json").CombinedOutput()
+func (c Client) Exists(ctx context.Context, name string) (bool, error) {
+	output, err := c.combinedOutput(ctx, "list", "-o", "json")
 	if err != nil {
 		return false, fmt.Errorf("could not list Namespace Devboxes: %w", err)
 	}
@@ -132,32 +138,27 @@ func parseDevboxList(output []byte) ([]devboxSummary, error) {
 	return devboxes, nil
 }
 
-func (c Client) Create(name string, cfg config.Config, repositoryURL string) error {
+func (c Client) Create(ctx context.Context, name string, cfg config.Config, repositoryURL string) error {
 	spec, err := json.Marshal(makeDevboxSpec(name, cfg, repositoryURL))
 	if err != nil {
 		return err
 	}
-	command := c.command("create", "--from", "-", "--from_format", "json")
-	command.Stdin, command.Stdout, command.Stderr = bytes.NewReader(spec), os.Stdout, os.Stderr
-	if err := command.Run(); err != nil {
-		return fmt.Errorf("Namespace could not create Devbox %s", name)
+	args := []string{"create", "--from", "-", "--from_format", "json"}
+	if err := c.cmd.RunWithStdin(ctx, bytes.NewReader(spec), args...); err != nil {
+		return fmt.Errorf("Namespace could not create Devbox %s: %w", name, err)
 	}
 	return nil
 }
 
-func (c Client) CreateFromSpec(name, path string) error {
-	command := c.command("create", "--from", path, "--name", name)
-	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
-	if err := command.Run(); err != nil {
-		return fmt.Errorf("Namespace could not create Devbox %s", name)
+func (c Client) CreateFromSpec(ctx context.Context, name, path string) error {
+	if err := c.cmd.Run(ctx, "create", "--from", path, "--name", name); err != nil {
+		return fmt.Errorf("Namespace could not create Devbox %s: %w", name, err)
 	}
 	return nil
 }
 
-func (c Client) Connect(name, sessionName string) (int, error) {
-	command := c.command("session", "connect", name, "--session", sessionName)
-	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
-	err := command.Run()
+func (c Client) Connect(ctx context.Context, name, sessionName string) (int, error) {
+	err := c.cmd.Run(ctx, "session", "connect", name, "--session", sessionName)
 	if err == nil {
 		return 0, nil
 	}
@@ -168,5 +169,5 @@ func (c Client) Connect(name, sessionName string) (int, error) {
 		}
 		return exitError.ExitCode(), nil
 	}
-	return 1, fmt.Errorf("could not run %s: %w", c.executable, err)
+	return 1, fmt.Errorf("could not connect to Namespace Devbox session: %w", err)
 }

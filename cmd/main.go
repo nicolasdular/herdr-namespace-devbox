@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"herdr-namespace/internal/herdr"
 	"herdr-namespace/internal/namespace"
@@ -16,13 +19,15 @@ type ActionInputs struct {
 }
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx, os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string) error {
+func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: herdr-namespace <start-devbox|new-devbox|connect-session>")
 	}
@@ -37,7 +42,7 @@ func run(args []string) error {
 		if devboxName == "" {
 			devboxName = namespace.WorkspaceDevboxName(inputs.Workspace)
 		}
-		return openDevbox(inputs, "start-devbox", devboxName, specPath)
+		return openDevbox(ctx, inputs, "start-devbox", devboxName, specPath)
 	case "new-devbox":
 		inputs, err := loadActionInputs()
 		if err != nil {
@@ -45,9 +50,9 @@ func run(args []string) error {
 		}
 		specPath, _ := namespace.WorkspaceSpec(inputs.Workspace)
 		devboxName := namespace.NewDevboxName(inputs.Workspace)
-		return openDevbox(inputs, "new-devbox", devboxName, specPath)
+		return openDevbox(ctx, inputs, "new-devbox", devboxName, specPath)
 	case "connect-session":
-		return connectSession(args[1:])
+		return connectSession(ctx, args[1:])
 	default:
 		return fmt.Errorf("unknown command: %s", args[0])
 	}
