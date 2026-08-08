@@ -1,0 +1,13 @@
+id = "namespace.devbox"
+name = "Namespace Devbox"
+version = "0.1.0"
+min_herdr_version = "0.8.0"
+description = "Open a persistent Namespace Devbox terminal in the focused Herdr pane."
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "start-devbox"
+title = "Open a new Namespace Devbox"
+description = "Create a persistent Namespace Devbox and attach its terminal session in the focused Herdr pane."
+contexts = ["workspace", "pane"]
+command = ["bin/herdr-namespace", "start-devbox"]

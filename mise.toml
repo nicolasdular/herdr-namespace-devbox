@@ -1,0 +1,22 @@
+[tools]
+go = "1.26.5"
+
+[tasks.install]
+description = "Build the Herdr plugin executables"
+run = '''
+mkdir -p bin
+go build -o bin/herdr-namespace ./cmd/herdr-namespace
+'''
+
+[tasks.check]
+description = "Check formatting, vet, test, and build the Go project"
+run = '''
+test -z "$(gofmt -l .)"
+go vet ./...
+go test ./...
+go build ./...
+'''
+
+[tasks.format]
+description = "Format the repository"
+run = "gofmt -w ."

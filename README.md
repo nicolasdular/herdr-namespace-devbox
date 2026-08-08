@@ -1,0 +1,62 @@
+# Namespace Devbox for Herdr
+
+Open a persistent Namespace Devbox terminal in the focused Herdr pane.
+
+## Requirements
+
+- mise
+- Herdr 0.8.0 or newer
+- Go 1.26 or newer
+- Namespace Devbox CLI, authenticated with `devbox login`
+
+## Install and link
+
+```sh
+mise install
+mise run install # builds bin/herdr-namespace
+mise run check
+herdr plugin link /absolute/path/to/herdr-namespace
+herdr plugin action list --plugin namespace.devbox
+```
+
+Invoke the action directly:
+
+```sh
+herdr plugin action invoke start-devbox --plugin namespace.devbox
+```
+
+Or add a keybinding to Herdr's config:
+
+```toml
+[[keys.command]]
+key = "prefix+d"
+type = "plugin_action"
+command = "namespace.devbox.start-devbox"
+description = "open this workspace in a Namespace Devbox"
+```
+
+## Configuration
+
+Find the managed configuration directory:
+
+```sh
+herdr plugin config-dir namespace.devbox
+```
+
+Create `config.json` there if the defaults need changing:
+
+```json
+{
+  "image": "builtin:agents",
+  "size": "m",
+  "accessMode": "private",
+  "autoStopIdleTimeout": "1h",
+  "sessionName": "herdr",
+  "shell": "bash",
+  "setupGithub": false,
+  "volumeSizeGb": 100
+}
+```
+
+Supported sizes are `s`, `m`, `l`, and `xl`. Unknown configuration keys are rejected.
+
