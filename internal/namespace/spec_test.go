@@ -4,34 +4,29 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWorkspaceSpecUsesDevboxYAMLName(t *testing.T) {
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, "devbox.yaml"), []byte("name: project-devbox\nimage: custom:image\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(workspace, "devbox.yaml"), []byte("name: project-devbox\nimage: custom:image\n"), 0o600))
 
 	path, name := WorkspaceSpec(workspace)
-	if path != filepath.Join(workspace, "devbox.yaml") || name != "project-devbox" {
-		t.Fatalf("got path %q and name %q", path, name)
-	}
+	require.Equal(t, filepath.Join(workspace, "devbox.yaml"), path)
+	require.Equal(t, "project-devbox", name)
 }
 
 func TestWorkspaceSpecAllowsMissingFile(t *testing.T) {
 	path, name := WorkspaceSpec(t.TempDir())
-	if path != "" || name != "" {
-		t.Fatalf("got path %q and name %q", path, name)
-	}
+	require.Empty(t, path)
+	require.Empty(t, name)
 }
 
 func TestWorkspaceSpecLeavesValidationToDevbox(t *testing.T) {
 	workspace := t.TempDir()
-	if err := os.WriteFile(filepath.Join(workspace, "devbox.yaml"), []byte("image: custom:image\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(workspace, "devbox.yaml"), []byte("image: custom:image\n"), 0o600))
 	path, name := WorkspaceSpec(workspace)
-	if path == "" || name != "" {
-		t.Fatalf("got path %q and name %q", path, name)
-	}
+	require.NotEmpty(t, path)
+	require.Empty(t, name)
 }

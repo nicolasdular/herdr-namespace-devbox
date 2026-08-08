@@ -4,66 +4,44 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewUsesProvidedExecutable(t *testing.T) {
 	client := New("/custom/bin/herdr")
-	if client.executable != "/custom/bin/herdr" {
-		t.Fatalf("got %q", client.executable)
-	}
+	require.Equal(t, "/custom/bin/herdr", client.executable)
 }
 
 func TestNewFallsBackToHerdrOnPath(t *testing.T) {
 	client := New("")
-	if client.executable != "herdr" {
-		t.Fatalf("got %q", client.executable)
-	}
+	require.Equal(t, "herdr", client.executable)
 }
 
 func TestContextPrefersFocusedPaneCWD(t *testing.T) {
 	context, err := ParseContext(`{"workspace_cwd":"/workspace","focused_pane_cwd":"/workspace/subdir"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := context.Workspace(); got != "/workspace/subdir" {
-		t.Fatalf("got %q", got)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "/workspace/subdir", context.Workspace())
 }
 
 func TestWorkspaceRootFindsGitRootFromSubdirectory(t *testing.T) {
 	repository := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repository, ".git"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Mkdir(filepath.Join(repository, ".git"), 0o755))
 	subdirectory := filepath.Join(repository, "some", "nested", "directory")
-	if err := os.MkdirAll(subdirectory, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(subdirectory, 0o755))
 
 	got, err := WorkspaceRoot(subdirectory)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	want, err := filepath.EvalSymlinks(repository)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != want {
-		t.Fatalf("got %q, want %q", got, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, want, got)
 }
 
 func TestWorkspaceRootFallsBackToDirectoryOutsideGit(t *testing.T) {
 	workspace := t.TempDir()
 	got, err := WorkspaceRoot(workspace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	want, err := filepath.EvalSymlinks(workspace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != want {
-		t.Fatalf("got %q, want %q", got, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, want, got)
 }
