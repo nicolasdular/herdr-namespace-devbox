@@ -1,15 +1,12 @@
 package herdr
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"strings"
 )
 
 type Herdr struct {
@@ -17,10 +14,22 @@ type Herdr struct {
 }
 
 func New(executable string) Herdr {
+	if executable == "" {
+		executable = "herdr"
+	}
 	return Herdr{executable: executable}
 }
 
-func (h Herdr) Run(args ...string) error {
+func (h Herdr) RenamePane(paneID, title string) error {
+	return h.run("pane", "rename", paneID, title)
+}
+
+func (h Herdr) RunInPane(paneID, executable string, args ...string) error {
+	command := []string{"pane", "run", paneID, executable}
+	return h.run(append(command, args...)...)
+}
+
+func (h Herdr) run(args ...string) error {
 	command := exec.Command(h.executable, args...)
 	if err := command.Run(); err != nil {
 		return fmt.Errorf("run %s: %w", h.executable, err)
@@ -59,25 +68,26 @@ func (c Context) Pane(fallback string) string {
 	return fallback
 }
 
-var invalidNameCharacters = regexp.MustCompile(`[^a-z0-9-]+`)
+func WorkspaceRoot(workspace string) (string, error) {
+	absolute, err := filepath.Abs(workspace)
+	if err != nil {
+		return "", fmt.Errorf("resolve workspace path: %w", err)
+	}
+	if resolved, err := filepath.EvalSymlinks(absolute); err == nil {
+		absolute = resolved
+	}
 
-func GenerateDevboxName(workspace string) string {
-	base := strings.ToLower(filepath.Base(workspace))
-	base = invalidNameCharacters.ReplaceAllString(base, "-")
-	base = strings.Trim(base, "-")
-	if len(base) > 24 {
-		base = base[:24]
+	current := absolute
+	for {
+		if _, err := os.Stat(filepath.Join(current, ".git")); err == nil {
+			return current, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("inspect workspace: %w", err)
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return absolute, nil
+		}
+		current = parent
 	}
-	if base == "" {
-		base = "workspace"
-	}
-	digest := sha256.Sum256([]byte(workspace + "\x00" + rand.Text()))
-	return fmt.Sprintf("herdr-%s-%x", base, digest[:5])
-}
-
-func Environment(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
 }

@@ -29,12 +29,29 @@ func TestMakeDevboxSpecAddsGitHubIntegration(t *testing.T) {
 }
 
 func TestAuthenticationCheckReportsExecutionErrors(t *testing.T) {
-	client := New("/path/that/does/not/exist/devbox")
+	client := Client{executable: "/path/that/does/not/exist/devbox"}
 	authenticated, err := client.IsAuthenticated()
 	if err == nil {
 		t.Fatal("expected an execution error")
 	}
 	if authenticated {
 		t.Fatal("unexpected authenticated result")
+	}
+}
+
+func TestParseDevboxListAllowsCLIStatusMessages(t *testing.T) {
+	output := []byte("No devbox available yet.\n[{\"name\":\"herdr-project-123\"}]\nA new version is available.\n")
+	devboxes, err := parseDevboxList(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(devboxes) != 1 || devboxes[0].Name != "herdr-project-123" {
+		t.Fatalf("got %#v", devboxes)
+	}
+}
+
+func TestParseDevboxListRejectsMissingJSON(t *testing.T) {
+	if _, err := parseDevboxList([]byte("not JSON")); err == nil {
+		t.Fatal("expected invalid output to fail")
 	}
 }

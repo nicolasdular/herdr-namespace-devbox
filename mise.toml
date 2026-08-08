@@ -5,7 +5,7 @@ go = "1.26.5"
 description = "Build the Herdr plugin executables"
 run = '''
 mkdir -p bin
-go build -o bin/herdr-namespace ./cmd/herdr-namespace
+go build -o bin/herdr-namespace ./cmd
 '''
 
 [tasks.check]

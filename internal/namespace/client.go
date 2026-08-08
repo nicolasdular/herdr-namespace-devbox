@@ -57,8 +57,8 @@ type Client struct {
 	executable string
 }
 
-func New(executable string) Client {
-	return Client{executable: executable}
+func New() Client {
+	return Client{executable: "devbox"}
 }
 
 func (c Client) command(args ...string) *exec.Cmd {
@@ -91,6 +91,40 @@ func (c Client) Login() error {
 		return errors.New("Namespace login did not complete successfully")
 	}
 	return nil
+}
+
+func (c Client) Exists(name string) (bool, error) {
+	output, err := c.command("list", "-o", "json").CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("could not list Namespace Devboxes: %w", err)
+	}
+	devboxes, err := parseDevboxList(output)
+	if err != nil {
+		return false, err
+	}
+	for _, devbox := range devboxes {
+		if devbox.Name == name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+type devboxSummary struct {
+	Name string `json:"name"`
+}
+
+func parseDevboxList(output []byte) ([]devboxSummary, error) {
+	start := bytes.IndexByte(output, '[')
+	end := bytes.LastIndexByte(output, ']')
+	if start < 0 || end < start {
+		return nil, errors.New("Namespace returned an invalid Devbox list")
+	}
+	var devboxes []devboxSummary
+	if err := json.Unmarshal(output[start:end+1], &devboxes); err != nil {
+		return nil, fmt.Errorf("parse Namespace Devbox list: %w", err)
+	}
+	return devboxes, nil
 }
 
 func (c Client) Create(name string, cfg config.Config) error {
