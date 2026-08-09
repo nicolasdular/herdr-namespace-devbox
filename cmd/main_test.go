@@ -29,7 +29,6 @@ func (*outputRunner) Run(context.Context, string, []string, io.Reader, io.Writer
 }
 
 func TestLoadActionInputsUsesWorkspaceRoot(t *testing.T) {
-	configDirectory := t.TempDir()
 	repository := t.TempDir()
 	require.NoError(t, os.Mkdir(filepath.Join(repository, ".git"), 0o755))
 	subdirectory := filepath.Join(repository, "nested")
@@ -39,7 +38,6 @@ func TestLoadActionInputsUsesWorkspaceRoot(t *testing.T) {
 		"focused_pane_id":  "pane-1",
 	})
 	require.NoError(t, err)
-	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", configDirectory)
 	t.Setenv("HERDR_PLUGIN_CONTEXT_JSON", string(contextJSON))
 
 	inputs, err := loadActionInputs()

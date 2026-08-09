@@ -12,56 +12,9 @@ import (
 	"time"
 
 	"herdr-namespace/internal/command"
-	"herdr-namespace/internal/config"
 )
 
 const probeTimeout = 15 * time.Second
-
-type devboxSpec struct {
-	Name                string        `json:"name"`
-	Image               string        `json:"image"`
-	Size                string        `json:"size"`
-	AccessMode          string        `json:"access_mode"`
-	AutoStopIdleTimeout string        `json:"auto_stop_idle_timeout"`
-	Repository          repository    `json:"repository"`
-	Sessions            []session     `json:"sessions"`
-	Integrations        *integrations `json:"integrations,omitempty"`
-	VolumeSizeGB        *int          `json:"volume_size_gb,omitempty"`
-	Site                *string       `json:"site,omitempty"`
-}
-
-type repository struct {
-	Disabled bool   `json:"disabled,omitempty"`
-	URL      string `json:"url,omitempty"`
-}
-type session struct {
-	Name    string `json:"name"`
-	Command string `json:"command"`
-}
-type integrations struct {
-	GitHub githubIntegration `json:"github"`
-}
-type githubIntegration struct {
-	ShareAuth bool `json:"share_auth"`
-}
-
-func makeDevboxSpec(name string, cfg config.Config, repositoryURL string) devboxSpec {
-	repo := repository{Disabled: true}
-	if repositoryURL != "" {
-		repo = repository{URL: repositoryURL}
-	}
-	spec := devboxSpec{
-		Name: name, Image: cfg.Image, Size: cfg.Size, AccessMode: cfg.AccessMode,
-		AutoStopIdleTimeout: cfg.AutoStopIdleTimeout,
-		Repository:          repo,
-		Sessions:            []session{{Name: cfg.SessionName, Command: cfg.Shell}},
-		VolumeSizeGB:        cfg.VolumeSizeGB, Site: cfg.Site,
-	}
-	if cfg.SetupGitHub {
-		spec.Integrations = &integrations{GitHub: githubIntegration{ShareAuth: true}}
-	}
-	return spec
-}
 
 type Client struct {
 	cmd command.Command
@@ -138,21 +91,14 @@ func parseDevboxList(output []byte) ([]devboxSummary, error) {
 	return devboxes, nil
 }
 
-func (c Client) Create(ctx context.Context, name string, cfg config.Config, repositoryURL string) error {
-	spec, err := json.Marshal(makeDevboxSpec(name, cfg, repositoryURL))
+func (c Client) Create(ctx context.Context, spec Spec) error {
+	contents, err := json.Marshal(spec)
 	if err != nil {
 		return err
 	}
 	args := []string{"create", "--from", "-", "--from_format", "json"}
-	if err := c.cmd.RunWithStdin(ctx, bytes.NewReader(spec), args...); err != nil {
-		return fmt.Errorf("Namespace could not create Devbox %s: %w", name, err)
-	}
-	return nil
-}
-
-func (c Client) CreateFromSpec(ctx context.Context, name, path string) error {
-	if err := c.cmd.Run(ctx, "create", "--from", path, "--name", name); err != nil {
-		return fmt.Errorf("Namespace could not create Devbox %s: %w", name, err)
+	if err := c.cmd.RunWithStdin(ctx, bytes.NewReader(contents), args...); err != nil {
+		return fmt.Errorf("Namespace could not create Devbox %s: %w", spec.Name, err)
 	}
 	return nil
 }

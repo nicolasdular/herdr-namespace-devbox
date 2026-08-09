@@ -87,35 +87,26 @@ With Herdr's default prefix, press `ctrl+b d` to open the workspace Devbox, `ctr
 
 ## Configuration
 
-The defaults work without a configuration file. To customize them, first find the plugin's managed configuration directory:
+The plugin works without configuration by using a private, medium-sized `builtin:agents` Devbox with a one-hour idle timeout and a `herdr` Bash session. It clones the workspace's Git remote when one is available.
 
-```sh
-herdr plugin config-dir namespace.devbox
+To customize a workspace, create `devbox.yaml` at the Git worktree root:
+
+```yaml
+name: project-devbox
+image: builtin:agents
+size: m
+access_mode: private
+auto_stop_idle_timeout: 1h
+sessions:
+  - name: herdr
+    command: bash
 ```
 
-Create a `config.json` file in that directory:
-
-```json
-{
-  "image": "builtin:agents",
-  "size": "m",
-  "accessMode": "private",
-  "autoStopIdleTimeout": "1h",
-  "sessionName": "herdr",
-  "shell": "bash",
-  "setupGithub": false
-}
-```
-
-Omitted fields use the defaults shown above. Supported sizes are `s`, `m`, `l`, and `xl`; `accessMode` can be `private` or `shared`. You can also set `volumeSizeGb` to a positive integer or `site` to a Namespace site name. Unknown configuration keys are rejected.
-
-### Workspace `devbox.yaml`
-
-When a Git worktree contains `devbox.yaml` at its root, the plugin passes that file directly to Namespace instead of using `config.json`. The file must define `name`, which becomes the workspace's default Devbox name. The `new-devbox` action uses the same specification with a unique name suffix.
+The YAML `name`, when present, becomes the workspace's default Devbox name; otherwise the plugin generates a stable name. The `new-devbox` action uses the same specification with a unique name. If the YAML does not declare a session, the plugin adds the default `herdr` Bash session. Both YAML-backed and default specifications are normalized to JSON and streamed to the Namespace CLI.
 
 ## Update or uninstall
 
-Reinstall the GitHub plugin to update it. Your configuration is stored separately and remains in place:
+Reinstall the GitHub plugin to update it. Workspace `devbox.yaml` files remain in their repositories:
 
 ```sh
 herdr plugin install nicolasdular/herdr-namespace-devbox

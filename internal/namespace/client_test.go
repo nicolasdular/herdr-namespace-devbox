@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"herdr-namespace/internal/command"
-	"herdr-namespace/internal/config"
 )
 
 type runnerCall struct {
@@ -57,30 +56,6 @@ func testClient(runner *recordingRunner) Client {
 	}
 }
 
-func TestMakeDevboxSpec(t *testing.T) {
-	got := makeDevboxSpec("herdr-demo-123", config.Default, "")
-	want := devboxSpec{
-		Name: "herdr-demo-123", Image: "builtin:agents", Size: "m", AccessMode: "private",
-		AutoStopIdleTimeout: "1h", Repository: repository{Disabled: true},
-		Sessions: []session{{Name: "herdr", Command: "bash"}},
-	}
-	require.Equal(t, want, got)
-}
-
-func TestMakeDevboxSpecAddsGitHubIntegration(t *testing.T) {
-	cfg := config.Default
-	cfg.SetupGitHub = true
-	got := makeDevboxSpec("herdr-demo-123", cfg, "")
-	require.NotNil(t, got.Integrations)
-	require.True(t, got.Integrations.GitHub.ShareAuth)
-}
-
-func TestMakeDevboxSpecAddsRepository(t *testing.T) {
-	got := makeDevboxSpec("herdr-demo-123", config.Default, "github.com/acme/demo")
-	want := repository{URL: "github.com/acme/demo"}
-	require.Equal(t, want, got.Repository)
-}
-
 func TestAuthenticationCheckReportsExecutionErrors(t *testing.T) {
 	client := Client{cmd: command.New("/path/that/does/not/exist/devbox")}
 	authenticated, err := client.IsAuthenticated(context.Background())
@@ -113,13 +88,14 @@ func TestLoginUsesInteractiveStreams(t *testing.T) {
 func TestCreateStreamsGeneratedSpecToDevbox(t *testing.T) {
 	runner := &recordingRunner{}
 	client := testClient(runner)
+	spec := Spec{Name: "demo", Repository: &Repository{URL: "github.com/acme/demo"}}
 
-	require.NoError(t, client.Create(context.Background(), "demo", config.Default, "github.com/acme/demo"))
+	require.NoError(t, client.Create(context.Background(), spec))
 	require.Equal(t, []string{"create", "--from", "-", "--from_format", "json"}, runner.calls[0].args)
-	spec, err := io.ReadAll(runner.calls[0].stdin)
+	contents, err := io.ReadAll(runner.calls[0].stdin)
 	require.NoError(t, err)
-	require.Contains(t, string(spec), `"name":"demo"`)
-	require.Contains(t, string(spec), `"url":"github.com/acme/demo"`)
+	require.Contains(t, string(contents), `"name":"demo"`)
+	require.Contains(t, string(contents), `"url":"github.com/acme/demo"`)
 }
 
 func TestStopForcesNamedDevboxToStop(t *testing.T) {

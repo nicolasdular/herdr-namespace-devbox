@@ -14,12 +14,8 @@ import (
 	"herdr-namespace/internal/namespace"
 )
 
-func workspaceDevbox(workspace string) (name, specPath string) {
-	specPath, name = namespace.WorkspaceSpec(workspace)
-	if name == "" {
-		name = namespace.WorkspaceDevboxName(workspace)
-	}
-	return name, specPath
+func workspaceDevbox(workspace string) (string, error) {
+	return namespace.WorkspaceSpecName(workspace)
 }
 
 func openDevbox(
@@ -27,7 +23,6 @@ func openDevbox(
 	inputs ActionInputs,
 	actionID string,
 	devboxName string,
-	specPath string,
 ) error {
 	runner := command.OSRunner{}
 	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
@@ -37,11 +32,9 @@ func openDevbox(
 	args := []string{
 		"connect-session",
 		"--name", devboxName,
-		"--config-dir", inputs.ConfigDir,
+		"--workspace", inputs.Workspace,
 	}
-	if specPath != "" {
-		args = append(args, "--devbox-spec", specPath)
-	} else if repository := repositoryURL(ctx, runner, inputs.Workspace); repository != "" {
+	if repository := repositoryURL(ctx, runner, inputs.Workspace); repository != "" {
 		args = append(args, "--repository", repository)
 	}
 	if err := herdrClient.RunInPane(

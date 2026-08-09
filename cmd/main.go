@@ -12,7 +12,6 @@ import (
 )
 
 type ActionInputs struct {
-	ConfigDir        string
 	PluginExecutable string
 	Workspace        string
 	PaneID           string
@@ -37,22 +36,27 @@ func run(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
-		devboxName, specPath := workspaceDevbox(inputs.Workspace)
-		return openDevbox(ctx, inputs, "start-devbox", devboxName, specPath)
+		devboxName, err := workspaceDevbox(inputs.Workspace)
+		if err != nil {
+			return err
+		}
+		return openDevbox(ctx, inputs, "start-devbox", devboxName)
 	case "new-devbox":
 		inputs, err := loadActionInputs()
 		if err != nil {
 			return err
 		}
-		specPath, _ := namespace.WorkspaceSpec(inputs.Workspace)
 		devboxName := namespace.NewDevboxName(inputs.Workspace)
-		return openDevbox(ctx, inputs, "new-devbox", devboxName, specPath)
+		return openDevbox(ctx, inputs, "new-devbox", devboxName)
 	case "stop-devbox":
 		inputs, err := loadActionInputs()
 		if err != nil {
 			return err
 		}
-		devboxName, _ := workspaceDevbox(inputs.Workspace)
+		devboxName, err := workspaceDevbox(inputs.Workspace)
+		if err != nil {
+			return err
+		}
 		return stopDevbox(ctx, inputs, devboxName)
 	case "connect-session":
 		return connectSession(ctx, args[1:])
@@ -63,11 +67,6 @@ func run(ctx context.Context, args []string) error {
 
 func loadActionInputs() (ActionInputs, error) {
 	var inputs ActionInputs
-
-	inputs.ConfigDir = os.Getenv("HERDR_PLUGIN_CONFIG_DIR")
-	if inputs.ConfigDir == "" {
-		return ActionInputs{}, fmt.Errorf("HERDR_PLUGIN_CONFIG_DIR is required")
-	}
 
 	var err error
 	inputs.PluginExecutable, err = os.Executable()
