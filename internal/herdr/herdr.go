@@ -29,8 +29,44 @@ func newWithRunner(executable string, runner command.Runner) Herdr {
 	return Herdr{cmd: command.NewWithRunner(executable, runner)}
 }
 
-func (h Herdr) RenamePane(ctx context.Context, paneID, title string) error {
-	return h.run(ctx, "pane", "rename", paneID, title)
+type Tab struct {
+	ID         string
+	RootPaneID string
+}
+
+func (h Herdr) CreateTab(ctx context.Context, cwd, label string) (Tab, error) {
+	output, err := h.cmd.Output(
+		ctx,
+		commandTimeout,
+		"tab", "create",
+		"--cwd", cwd,
+		"--label", label,
+		"--focus",
+	)
+	if err != nil {
+		return Tab{}, err
+	}
+
+	var response struct {
+		Result struct {
+			RootPane struct {
+				PaneID string `json:"pane_id"`
+			} `json:"root_pane"`
+			Tab struct {
+				TabID string `json:"tab_id"`
+			} `json:"tab"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(output, &response); err != nil {
+		return Tab{}, fmt.Errorf("parse Herdr tab creation response: %w", err)
+	}
+	if response.Result.Tab.TabID == "" || response.Result.RootPane.PaneID == "" {
+		return Tab{}, errors.New("Herdr tab creation response is missing tab or pane ID")
+	}
+	return Tab{
+		ID:         response.Result.Tab.TabID,
+		RootPaneID: response.Result.RootPane.PaneID,
+	}, nil
 }
 
 func (h Herdr) RunInPane(ctx context.Context, paneID, executable string, args ...string) error {

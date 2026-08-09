@@ -47,6 +47,23 @@ func TestLoadActionInputsUsesWorkspaceRoot(t *testing.T) {
 	require.Equal(t, workspaceRoot, inputs.Workspace)
 }
 
+func TestLoadActionInputsDoesNotRequireFocusedPane(t *testing.T) {
+	workspace := t.TempDir()
+	contextJSON, err := json.Marshal(map[string]string{
+		"workspace_cwd": workspace,
+	})
+	require.NoError(t, err)
+	t.Setenv("HERDR_PLUGIN_CONTEXT_JSON", string(contextJSON))
+	t.Setenv("HERDR_PANE_ID", "")
+
+	inputs, err := loadActionInputs()
+	require.NoError(t, err)
+	resolvedWorkspace, err := filepath.EvalSymlinks(workspace)
+	require.NoError(t, err)
+	require.Equal(t, resolvedWorkspace, inputs.Workspace)
+	require.Empty(t, inputs.PaneID)
+}
+
 func TestNormalizeRepositoryURL(t *testing.T) {
 	tests := map[string]string{
 		"git@github.com:acme/demo.git":     "github.com/acme/demo",
@@ -56,6 +73,10 @@ func TestNormalizeRepositoryURL(t *testing.T) {
 	for input, want := range tests {
 		require.Equal(t, want, normalizeRepositoryURL(input))
 	}
+}
+
+func TestTabTitleUsesWorkspaceDirectory(t *testing.T) {
+	require.Equal(t, "Devbox · demo", tabTitle("/workspace/demo"))
 }
 
 func TestRepositoryURLBuildsGitCommand(t *testing.T) {

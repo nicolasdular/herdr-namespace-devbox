@@ -29,26 +29,58 @@ func (*recordingRunner) Run(context.Context, string, []string, io.Reader, io.Wri
 }
 
 func TestNewUsesProvidedExecutable(t *testing.T) {
-	runner := &recordingRunner{}
+	runner := &recordingRunner{output: tabCreatedOutput("tab-1", "pane-1")}
 	client := newWithRunner("/custom/bin/herdr", runner)
-	require.NoError(t, client.RenamePane(context.Background(), "pane-1", "title"))
+	_, err := client.CreateTab(context.Background(), "/workspace", "title")
+	require.NoError(t, err)
 	require.Equal(t, "/custom/bin/herdr", runner.executable)
 }
 
 func TestNewFallsBackToHerdrOnPath(t *testing.T) {
-	runner := &recordingRunner{}
+	runner := &recordingRunner{output: tabCreatedOutput("tab-1", "pane-1")}
 	client := newWithRunner("", runner)
-	require.NoError(t, client.RenamePane(context.Background(), "pane-1", "title"))
+	_, err := client.CreateTab(context.Background(), "/workspace", "title")
+	require.NoError(t, err)
 	require.Equal(t, "herdr", runner.executable)
 }
 
-func TestRenamePaneBuildsCommand(t *testing.T) {
+func TestCreateTabBuildsCommandAndReturnsIDs(t *testing.T) {
+	runner := &recordingRunner{output: tabCreatedOutput("tab-1", "pane-1")}
+	client := newWithRunner("/custom/bin/herdr", runner)
+
+	tab, err := client.CreateTab(context.Background(), "/workspace/demo", "Devbox · demo")
+	require.NoError(t, err)
+	require.Equal(t, Tab{ID: "tab-1", RootPaneID: "pane-1"}, tab)
+	require.Equal(t, "/custom/bin/herdr", runner.executable)
+	require.Equal(t, []string{
+		"tab", "create",
+		"--cwd", "/workspace/demo",
+		"--label", "Devbox · demo",
+		"--focus",
+	}, runner.args)
+}
+
+func TestCreateTabRejectsInvalidResponse(t *testing.T) {
+	runner := &recordingRunner{output: []byte(`{"result":{"type":"tab_created"}}`)}
+	client := newWithRunner("herdr", runner)
+
+	_, err := client.CreateTab(context.Background(), "/workspace", "Devbox · demo")
+	require.ErrorContains(t, err, "missing tab or pane ID")
+}
+
+func TestRunInPaneBuildsCommand(t *testing.T) {
 	runner := &recordingRunner{}
 	client := newWithRunner("/custom/bin/herdr", runner)
 
-	require.NoError(t, client.RenamePane(context.Background(), "pane-1", "Namespace · demo"))
-	require.Equal(t, "/custom/bin/herdr", runner.executable)
-	require.Equal(t, []string{"pane", "rename", "pane-1", "Namespace · demo"}, runner.args)
+	require.NoError(t, client.RunInPane(
+		context.Background(),
+		"pane-1",
+		"/plugins/namespace",
+		"connect-session",
+	))
+	require.Equal(t, []string{
+		"pane", "run", "pane-1", "/plugins/namespace", "connect-session",
+	}, runner.args)
 }
 
 func TestCommandFailureIncludesCapturedOutput(t *testing.T) {
@@ -56,9 +88,13 @@ func TestCommandFailureIncludesCapturedOutput(t *testing.T) {
 	runner := &recordingRunner{output: []byte("pane not found\n"), err: wantErr}
 	client := newWithRunner("herdr", runner)
 
-	err := client.RenamePane(context.Background(), "missing", "title")
+	_, err := client.CreateTab(context.Background(), "/workspace", "title")
 	require.ErrorIs(t, err, wantErr)
 	require.ErrorContains(t, err, "pane not found")
+}
+
+func tabCreatedOutput(tabID, paneID string) []byte {
+	return []byte(`{"result":{"root_pane":{"pane_id":"` + paneID + `"},"tab":{"tab_id":"` + tabID + `"},"type":"tab_created"}}`)
 }
 
 func TestContextPrefersFocusedPaneCWD(t *testing.T) {

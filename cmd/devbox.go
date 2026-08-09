@@ -26,7 +26,8 @@ func openDevbox(
 ) error {
 	runner := command.OSRunner{}
 	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
-	if err := herdrClient.RenamePane(ctx, inputs.PaneID, paneTitle(inputs.Workspace)); err != nil {
+	tab, err := herdrClient.CreateTab(ctx, inputs.Workspace, tabTitle(inputs.Workspace))
+	if err != nil {
 		return err
 	}
 	args := []string{
@@ -38,11 +39,11 @@ func openDevbox(
 		args = append(args, "--repository", repository)
 	}
 	if err := herdrClient.RunInPane(
-		ctx, inputs.PaneID, inputs.PluginExecutable, args...,
+		ctx, tab.RootPaneID, inputs.PluginExecutable, args...,
 	); err != nil {
 		return err
 	}
-	printResult(actionID, "session-launched", inputs.PaneID, devboxName)
+	printResult(actionID, "session-launched", tab.RootPaneID, devboxName)
 	return nil
 }
 
@@ -66,8 +67,8 @@ func normalizeRepositoryURL(repository string) string {
 	return strings.TrimSuffix(repository, ".git")
 }
 
-func paneTitle(workspace string) string {
-	return "Namespace · " + filepath.Base(workspace)
+func tabTitle(workspace string) string {
+	return "Devbox · " + filepath.Base(workspace)
 }
 
 func printResult(actionID, phase, paneID, devboxName string) {

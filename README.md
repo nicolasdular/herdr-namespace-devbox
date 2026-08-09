@@ -1,6 +1,6 @@
 # Namespace Devbox for Herdr
 
-Open a persistent [Namespace Devbox](https://namespace.so/) in the focused [Herdr](https://herdr.dev/) pane. Each Git worktree gets a stable default Devbox that the plugin creates on first use and reconnects to later.
+Open a persistent [Namespace Devbox](https://namespace.so/) in a new [Herdr](https://herdr.dev/) tab. Each Git worktree gets a stable default Devbox that the plugin creates on first use and reconnects to later.
 
 ## Requirements
 
@@ -37,7 +37,7 @@ From a Herdr workspace, open its default Devbox:
 herdr plugin action invoke namespace.devbox.start-devbox
 ```
 
-The first invocation starts the Namespace login flow when necessary. It then creates a persistent Devbox for the current Git worktree, or reconnects to the existing one. Invoking the action from a nested directory still uses the Git worktree root.
+The action opens a focused `Devbox · <workspace>` tab without changing the pane where it was invoked. Its first invocation starts the Namespace login flow when necessary, then creates a persistent Devbox for the current Git worktree. Later invocations reconnect to the existing Devbox in another new tab. Invoking the action from a nested directory still uses the Git worktree root.
 
 To create a separate Devbox without changing the workspace default:
 
@@ -45,7 +45,7 @@ To create a separate Devbox without changing the workspace default:
 herdr plugin action invoke namespace.devbox.new-devbox
 ```
 
-The additional Devbox receives a unique name.
+The additional Devbox receives a unique name and opens in its own `Devbox · <workspace>` tab.
 
 To stop the workspace's default Devbox:
 

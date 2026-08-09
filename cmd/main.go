@@ -82,7 +82,7 @@ func loadActionInputs() (ActionInputs, error) {
 	inputs.Workspace = herdrContext.Workspace()
 	inputs.PaneID = herdrContext.Pane(os.Getenv("HERDR_PANE_ID"))
 
-	if inputs.Workspace == "" || inputs.PaneID == "" {
+	if inputs.Workspace == "" {
 		return ActionInputs{}, fmt.Errorf("run this Namespace action from a Herdr workspace or pane")
 	}
 
