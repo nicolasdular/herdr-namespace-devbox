@@ -107,11 +107,40 @@ func TestStopForcesNamedDevboxToStop(t *testing.T) {
 	require.Equal(t, []string{"stop", "herdr-demo-123", "--force"}, runner.calls[0].args)
 }
 
+func TestDeleteForcesNamedDevboxToExpire(t *testing.T) {
+	runner := &recordingRunner{}
+	client := testClient(runner)
+
+	require.NoError(t, client.Delete(context.Background(), "herdr-demo-123"))
+	require.Len(t, runner.calls, 1)
+	require.Equal(t, []string{"expire", "herdr-demo-123", "--force"}, runner.calls[0].args)
+}
+
+func TestListReturnsDevboxDetails(t *testing.T) {
+	runner := &recordingRunner{output: []byte(`[{"id":"box-1","name":"demo","repository":"github.com/acme/demo","site":"zrh","volume_size_gb":150,"instance_shape":{"virtual_cpu":8,"memory_megabytes":16384}}]`)}
+	client := testClient(runner)
+
+	devboxes, err := client.List(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []Devbox{{
+		ID:           "box-1",
+		Name:         "demo",
+		Repository:   "github.com/acme/demo",
+		Site:         "zrh",
+		VolumeSizeGB: 150,
+		InstanceShape: InstanceShape{
+			VirtualCPU:      8,
+			MemoryMegabytes: 16384,
+		},
+	}}, devboxes)
+	require.Equal(t, []string{"list", "-o", "json"}, runner.calls[0].args)
+}
+
 func TestParseDevboxListAllowsCLIStatusMessages(t *testing.T) {
 	output := []byte("No devbox available yet.\n[{\"name\":\"herdr-project-123\"}]\nA new version is available.\n")
 	devboxes, err := parseDevboxList(output)
 	require.NoError(t, err)
-	require.Equal(t, []devboxSummary{{Name: "herdr-project-123"}}, devboxes)
+	require.Equal(t, []Devbox{{Name: "herdr-project-123"}}, devboxes)
 }
 
 func TestParseDevboxListRejectsMissingJSON(t *testing.T) {

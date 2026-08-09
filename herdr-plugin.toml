@@ -28,3 +28,28 @@ title = "Stop workspace Namespace Devbox"
 description = "Stop this workspace's default Namespace Devbox."
 contexts = ["workspace", "pane"]
 command = ["bin/herdr-namespace", "stop-devbox"]
+
+[[actions]]
+id = "manage-devboxes"
+title = "Manage Namespace Devboxes"
+description = "List and stop Namespace Devboxes in an interactive popup."
+contexts = ["global", "workspace", "tab", "pane"]
+command = [
+  "herdr",
+  "plugin",
+  "pane",
+  "open",
+  "--plugin",
+  "namespace.devbox",
+  "--entrypoint",
+  "manager",
+  "--placement",
+  "popup",
+  "--focus",
+]
+
+[[panes]]
+id = "manager"
+title = "Namespace Devboxes"
+placement = "popup"
+command = ["./bin/herdr-namespace", "manage-devboxes"]

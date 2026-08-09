@@ -14,7 +14,10 @@ import (
 	"herdr-namespace/internal/command"
 )
 
-const probeTimeout = 15 * time.Second
+const (
+	probeTimeout     = 15 * time.Second
+	operationTimeout = 2 * time.Minute
+)
 
 type Client struct {
 	cmd command.Command
@@ -58,11 +61,7 @@ func (c Client) Login(ctx context.Context) error {
 }
 
 func (c Client) Exists(ctx context.Context, name string) (bool, error) {
-	output, err := c.combinedOutput(ctx, "list", "-o", "json")
-	if err != nil {
-		return false, fmt.Errorf("could not list Namespace Devboxes: %w", err)
-	}
-	devboxes, err := parseDevboxList(output)
+	devboxes, err := c.List(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -74,17 +73,43 @@ func (c Client) Exists(ctx context.Context, name string) (bool, error) {
 	return false, nil
 }
 
-type devboxSummary struct {
-	Name string `json:"name"`
+func (c Client) List(ctx context.Context) ([]Devbox, error) {
+	output, err := c.combinedOutput(ctx, "list", "-o", "json")
+	if err != nil {
+		return nil, fmt.Errorf("could not list Namespace Devboxes: %w", err)
+	}
+	devboxes, err := parseDevboxList(output)
+	if err != nil {
+		return nil, err
+	}
+	return devboxes, nil
 }
 
-func parseDevboxList(output []byte) ([]devboxSummary, error) {
+type Devbox struct {
+	ID            string        `json:"id"`
+	Name          string        `json:"name"`
+	CreatedAt     string        `json:"created_at"`
+	LastUsedAt    string        `json:"last_used_at"`
+	Repository    string        `json:"repository"`
+	Site          string        `json:"site"`
+	VolumeSizeGB  int           `json:"volume_size_gb"`
+	InstanceShape InstanceShape `json:"instance_shape"`
+}
+
+type InstanceShape struct {
+	VirtualCPU      int    `json:"virtual_cpu"`
+	MemoryMegabytes int    `json:"memory_megabytes"`
+	MachineArch     string `json:"machine_arch"`
+	OS              string `json:"os"`
+}
+
+func parseDevboxList(output []byte) ([]Devbox, error) {
 	start := bytes.IndexByte(output, '[')
 	end := bytes.LastIndexByte(output, ']')
 	if start < 0 || end < start {
 		return nil, errors.New("Namespace returned an invalid Devbox list")
 	}
-	var devboxes []devboxSummary
+	var devboxes []Devbox
 	if err := json.Unmarshal(output[start:end+1], &devboxes); err != nil {
 		return nil, fmt.Errorf("parse Namespace Devbox list: %w", err)
 	}
@@ -104,8 +129,15 @@ func (c Client) Create(ctx context.Context, spec Spec) error {
 }
 
 func (c Client) Stop(ctx context.Context, name string) error {
-	if err := c.cmd.Run(ctx, "stop", name, "--force"); err != nil {
+	if _, err := c.cmd.Output(ctx, operationTimeout, "stop", name, "--force"); err != nil {
 		return fmt.Errorf("Namespace could not stop Devbox %s: %w", name, err)
+	}
+	return nil
+}
+
+func (c Client) Delete(ctx context.Context, name string) error {
+	if _, err := c.cmd.Output(ctx, operationTimeout, "expire", name, "--force"); err != nil {
+		return fmt.Errorf("Namespace could not delete Devbox %s: %w", name, err)
 	}
 	return nil
 }

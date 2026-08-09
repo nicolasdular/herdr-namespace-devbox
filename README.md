@@ -47,6 +47,14 @@ herdr plugin action invoke namespace.devbox.new-devbox
 
 The additional Devbox receives a unique name and opens in its own `Devbox · <workspace>` tab.
 
+To list and stop any of your Namespace Devboxes in an interactive popup:
+
+```sh
+herdr plugin action invoke namespace.devbox.manage-devboxes
+```
+
+Use the arrow keys or `j`/`k` to select a Devbox, `c` to create a new Devbox in its own tab, `s` to stop it, `d` to permanently delete it, `r` to refresh the list, and `q` or `esc` to close the popup. Stop and delete operations require confirmation. Creating requires an active Herdr workspace.
+
 To stop the workspace's default Devbox:
 
 ```sh
@@ -61,8 +69,8 @@ Add these commands to Herdr's config at `~/.config/herdr/config.toml`:
 [[keys.command]]
 key = "prefix+d"
 type = "plugin_action"
-command = "namespace.devbox.start-devbox"
-description = "open this workspace in a Namespace Devbox"
+command = "namespace.devbox.manage-devboxes"
+description = "manage Namespace Devboxes"
 
 [[keys.command]]
 key = "prefix+alt+d"
@@ -83,7 +91,7 @@ Reload the config after saving it:
 herdr server reload-config
 ```
 
-With Herdr's default prefix, press `ctrl+b d` to open the workspace Devbox, `ctrl+b alt+d` to create a separate one, or `ctrl+b shift+s` to stop the workspace Devbox. These avoid Herdr's built-in bindings for closing a workspace (`prefix+shift+d`) and pane (`prefix+x`).
+With Herdr's default prefix, press `ctrl+b d` to manage Devboxes, `ctrl+b alt+d` to create a separate one, or `ctrl+b shift+s` to stop the workspace Devbox. These avoid Herdr's built-in bindings for closing a workspace (`prefix+shift+d`) and pane (`prefix+x`).
 
 ## Configuration
 

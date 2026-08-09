@@ -28,7 +28,7 @@ func main() {
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: herdr-namespace <start-devbox|new-devbox|stop-devbox|connect-session>")
+		return fmt.Errorf("usage: herdr-namespace <start-devbox|new-devbox|stop-devbox|manage-devboxes|connect-session>")
 	}
 	switch args[0] {
 	case "start-devbox":
@@ -58,6 +58,8 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		return stopDevbox(ctx, inputs, devboxName)
+	case "manage-devboxes":
+		return manageDevboxes(ctx)
 	case "connect-session":
 		return connectSession(ctx, args[1:])
 	default:
