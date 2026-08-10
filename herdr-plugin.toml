@@ -1,6 +1,6 @@
 id = "namespace.devbox"
 name = "Namespace Devbox"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.8.0"
 description = "Open a persistent Namespace Devbox terminal in a new Herdr tab."
 platforms = ["linux", "macos"]
