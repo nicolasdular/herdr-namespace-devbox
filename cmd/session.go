@@ -45,6 +45,7 @@ func connectSession(ctx context.Context, args []string) error {
 	name := flags.String("name", "", "Devbox name")
 	repository := flags.String("repository", "", "Git repository to clone when creating the Devbox")
 	workspace := flags.String("workspace", "", "workspace directory")
+	existing := flags.Bool("existing", false, "connect without loading a workspace Devbox specification")
 
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -57,6 +58,9 @@ func connectSession(ctx context.Context, args []string) error {
 	client, err := prepareSession(ctx)
 	if err != nil {
 		return err
+	}
+	if *existing {
+		return attachToSession(ctx, client, "", *name)
 	}
 	spec, err := namespace.NewSpec(*workspace, *name, *repository)
 	if err != nil {
@@ -81,7 +85,11 @@ func connectSession(ctx context.Context, args []string) error {
 }
 
 func attachToSession(ctx context.Context, client namespace.Client, sessionName, devboxName string) error {
-	fmt.Printf("\nConnecting to session %s on %s...\n", sessionName, devboxName)
+	if sessionName == "" {
+		fmt.Printf("\nConnecting to %s...\n", devboxName)
+	} else {
+		fmt.Printf("\nConnecting to session %s on %s...\n", sessionName, devboxName)
+	}
 	exitCode, err := client.Connect(ctx, devboxName, sessionName)
 
 	if err != nil {

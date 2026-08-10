@@ -85,6 +85,16 @@ func TestLoginUsesInteractiveStreams(t *testing.T) {
 	require.Equal(t, io.Discard, runner.calls[0].stderr)
 }
 
+func TestConnectWithoutSessionLetsNamespaceChoose(t *testing.T) {
+	runner := &recordingRunner{}
+	client := testClient(runner)
+
+	exitCode, err := client.Connect(context.Background(), "box-one", "")
+	require.NoError(t, err)
+	require.Zero(t, exitCode)
+	require.Equal(t, []string{"session", "connect", "box-one"}, runner.calls[0].args)
+}
+
 func TestCreateStreamsGeneratedSpecToDevbox(t *testing.T) {
 	runner := &recordingRunner{}
 	client := testClient(runner)
@@ -117,17 +127,16 @@ func TestDeleteForcesNamedDevboxToExpire(t *testing.T) {
 }
 
 func TestListReturnsDevboxDetails(t *testing.T) {
-	runner := &recordingRunner{output: []byte(`[{"id":"box-1","name":"demo","repository":"github.com/acme/demo","site":"zrh","volume_size_gb":150,"instance_shape":{"virtual_cpu":8,"memory_megabytes":16384}}]`)}
+	runner := &recordingRunner{output: []byte(`[{"id":"box-1","name":"demo","repository":"github.com/acme/demo","site":"zrh","volume_size_gb":"150","instance_shape":{"virtual_cpu":8,"memory_megabytes":16384}}]`)}
 	client := testClient(runner)
 
 	devboxes, err := client.List(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []Devbox{{
-		ID:           "box-1",
-		Name:         "demo",
-		Repository:   "github.com/acme/demo",
-		Site:         "zrh",
-		VolumeSizeGB: 150,
+		ID:         "box-1",
+		Name:       "demo",
+		Repository: "github.com/acme/demo",
+		Site:       "zrh",
 		InstanceShape: InstanceShape{
 			VirtualCPU:      8,
 			MemoryMegabytes: 16384,

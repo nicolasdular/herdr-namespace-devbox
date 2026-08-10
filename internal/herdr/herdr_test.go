@@ -14,13 +14,21 @@ import (
 type recordingRunner struct {
 	executable string
 	args       []string
+	calls      [][]string
 	output     []byte
+	outputs    [][]byte
 	err        error
 }
 
 func (r *recordingRunner) CombinedOutput(_ context.Context, executable string, args ...string) ([]byte, error) {
 	r.executable = executable
 	r.args = append([]string(nil), args...)
+	r.calls = append(r.calls, append([]string(nil), args...))
+	if len(r.outputs) > 0 {
+		output := r.outputs[0]
+		r.outputs = r.outputs[1:]
+		return output, r.err
+	}
 	return r.output, r.err
 }
 
@@ -81,6 +89,66 @@ func TestRunInPaneBuildsCommand(t *testing.T) {
 	require.Equal(t, []string{
 		"pane", "run", "pane-1", "/plugins/namespace", "connect-session",
 	}, runner.args)
+}
+
+func TestMarkDevboxPaneAddsDiscoveryToken(t *testing.T) {
+	runner := &recordingRunner{}
+	client := newWithRunner("/custom/bin/herdr", runner)
+
+	require.NoError(t, client.MarkDevboxPane(context.Background(), "pane-1", "box-one"))
+	require.Equal(t, []string{
+		"pane", "report-metadata", "pane-1",
+		"--source", "namespace-devbox",
+		"--token", "devbox=box-one",
+	}, runner.args)
+}
+
+func TestFindDevboxPaneUsesGlobalPaneTokens(t *testing.T) {
+	runner := &recordingRunner{output: []byte(`{"result":{"type":"pane_list","panes":[{"pane_id":"pane-1","tab_id":"tab-1","workspace_id":"workspace-1","tokens":{"devbox":"box-one"}}]}}`)}
+	client := newWithRunner("/custom/bin/herdr", runner)
+
+	pane, err := client.FindDevboxPane(context.Background(), "box-one")
+	require.NoError(t, err)
+	require.Equal(t, &Pane{ID: "pane-1", TabID: "tab-1", WorkspaceID: "workspace-1", Tokens: map[string]string{"devbox": "box-one"}}, pane)
+	require.Equal(t, []string{"pane", "list"}, runner.args)
+}
+
+func TestFindDevboxPaneReportsMissingToken(t *testing.T) {
+	runner := &recordingRunner{output: []byte(`{"result":{"type":"pane_list","panes":[]}}`)}
+	client := newWithRunner("/custom/bin/herdr", runner)
+
+	pane, err := client.FindDevboxPane(context.Background(), "missing")
+	require.NoError(t, err)
+	require.Nil(t, pane)
+}
+
+func TestFindDevboxPaneMigratesRunningLegacyPane(t *testing.T) {
+	runner := &recordingRunner{outputs: [][]byte{
+		[]byte(`{"result":{"panes":[{"pane_id":"pane-1","tab_id":"tab-1","workspace_id":"workspace-1"}]}}`),
+		[]byte(`{"result":{"process_info":{"foreground_processes":[{"argv":["plugin","connect-session","--name","box-one"]}]}}}`),
+		[]byte(`{}`),
+	}}
+	client := newWithRunner("/custom/bin/herdr", runner)
+
+	pane, err := client.FindDevboxPane(context.Background(), "box-one")
+	require.NoError(t, err)
+	require.Equal(t, "tab-1", pane.TabID)
+	require.Equal(t, [][]string{
+		{"pane", "list"},
+		{"pane", "process-info", "--pane", "pane-1"},
+		{"pane", "report-metadata", "pane-1", "--source", "namespace-devbox", "--token", "devbox=box-one"},
+	}, runner.calls)
+}
+
+func TestFocusTabFocusesOwningWorkspaceFirst(t *testing.T) {
+	runner := &recordingRunner{}
+	client := newWithRunner("/custom/bin/herdr", runner)
+
+	require.NoError(t, client.FocusTab(context.Background(), "workspace-1", "tab-1"))
+	require.Equal(t, [][]string{
+		{"workspace", "focus", "workspace-1"},
+		{"tab", "focus", "tab-1"},
+	}, runner.calls)
 }
 
 func TestCommandFailureIncludesCapturedOutput(t *testing.T) {

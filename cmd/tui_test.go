@@ -201,6 +201,21 @@ func TestManagerCreateRequiresWorkspaceContext(t *testing.T) {
 	require.Equal(t, "Create a Devbox from a Herdr workspace.", manager.message)
 }
 
+func TestManagerEnterClosesPopupAndRequestsSelectedDevbox(t *testing.T) {
+	manager := managerWithDevboxes(t, &managerTestClient{devboxes: []namespace.Devbox{
+		{Name: "first"},
+		{Name: "second"},
+	}})
+	manager.list.Select(1)
+
+	updated, command := manager.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	manager = updated.(devboxManager)
+
+	require.Equal(t, "second", manager.open)
+	require.NotNil(t, command)
+	require.Contains(t, manager.View().Content, "enter open")
+}
+
 func TestManagerRemainsResponsiveDuringOperation(t *testing.T) {
 	manager := newDevboxManager(context.Background(), &managerTestClient{})
 	manager.operation = managerOperationStop

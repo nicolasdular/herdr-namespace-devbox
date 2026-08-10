@@ -26,10 +26,6 @@ func openDevbox(
 ) error {
 	runner := command.OSRunner{}
 	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
-	tab, err := herdrClient.CreateTab(ctx, inputs.Workspace, tabTitle(inputs.Workspace))
-	if err != nil {
-		return err
-	}
 	args := []string{
 		"connect-session",
 		"--name", devboxName,
@@ -38,13 +34,52 @@ func openDevbox(
 	if repository := repositoryURL(ctx, runner, inputs.Workspace); repository != "" {
 		args = append(args, "--repository", repository)
 	}
-	if err := herdrClient.RunInPane(
-		ctx, tab.RootPaneID, inputs.PluginExecutable, args...,
-	); err != nil {
+	tab, err := launchDevboxTab(ctx, herdrClient, inputs, tabTitle(inputs.Workspace), devboxName, args...)
+	if err != nil {
 		return err
 	}
 	printResult(actionID, "session-launched", tab.RootPaneID, devboxName)
 	return nil
+}
+
+func openOrFocusDevbox(ctx context.Context, inputs *ActionInputs, devboxName string) error {
+	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
+	pane, err := herdrClient.FindDevboxPane(ctx, devboxName)
+	if err != nil {
+		return err
+	}
+	if pane != nil {
+		return herdrClient.FocusTab(ctx, pane.WorkspaceID, pane.TabID)
+	}
+	if inputs == nil {
+		return fmt.Errorf("open a Devbox from a Herdr workspace")
+	}
+	_, err = launchDevboxTab(
+		ctx, herdrClient, *inputs, "Devbox · "+devboxName, devboxName,
+		"connect-session", "--name", devboxName, "--workspace", inputs.Workspace, "--existing",
+	)
+	return err
+}
+
+func launchDevboxTab(
+	ctx context.Context,
+	herdrClient herdr.Herdr,
+	inputs ActionInputs,
+	label string,
+	devboxName string,
+	args ...string,
+) (herdr.Tab, error) {
+	tab, err := herdrClient.CreateTab(ctx, inputs.Workspace, label)
+	if err != nil {
+		return herdr.Tab{}, err
+	}
+	if err := herdrClient.RunInPane(ctx, tab.RootPaneID, inputs.PluginExecutable, args...); err != nil {
+		return herdr.Tab{}, err
+	}
+	if err := herdrClient.MarkDevboxPane(ctx, tab.RootPaneID, devboxName); err != nil {
+		return herdr.Tab{}, err
+	}
+	return tab, nil
 }
 
 func repositoryURL(ctx context.Context, runner command.Runner, workspace string) string {

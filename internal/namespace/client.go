@@ -92,7 +92,6 @@ type Devbox struct {
 	LastUsedAt    string        `json:"last_used_at"`
 	Repository    string        `json:"repository"`
 	Site          string        `json:"site"`
-	VolumeSizeGB  int           `json:"volume_size_gb"`
 	InstanceShape InstanceShape `json:"instance_shape"`
 }
 
@@ -143,7 +142,11 @@ func (c Client) Delete(ctx context.Context, name string) error {
 }
 
 func (c Client) Connect(ctx context.Context, name, sessionName string) (int, error) {
-	err := c.cmd.Run(ctx, "session", "connect", name, "--session", sessionName)
+	args := []string{"session", "connect", name}
+	if sessionName != "" {
+		args = append(args, "--session", sessionName)
+	}
+	err := c.cmd.Run(ctx, args...)
 	if err == nil {
 		return 0, nil
 	}

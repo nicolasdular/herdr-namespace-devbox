@@ -53,7 +53,7 @@ To list and stop any of your Namespace Devboxes in an interactive popup:
 herdr plugin action invoke namespace.devbox.manage-devboxes
 ```
 
-Use the arrow keys or `j`/`k` to select a Devbox, `c` to create a new Devbox in its own tab, `s` to stop it, `d` to permanently delete it, `r` to refresh the list, and `q` or `esc` to close the popup. Stop and delete operations require confirmation. Creating requires an active Herdr workspace.
+Use the arrow keys or `j`/`k` to select a Devbox, `enter` to focus its open tab anywhere in Herdr (or open a new tab), `c` to create a new Devbox in its own tab, `s` to stop it, `d` to permanently delete it, `r` to refresh the list, and `q` or `esc` to close the popup. Stop and delete operations require confirmation. Opening or creating a new tab requires an active Herdr workspace.
 
 To stop the workspace's default Devbox:
 

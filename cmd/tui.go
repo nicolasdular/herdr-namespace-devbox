@@ -90,6 +90,7 @@ type devboxManager struct {
 	client       managerClient
 	createInputs *ActionInputs
 	create       bool
+	open         string
 	list         list.Model
 	spinner      spinner.Model
 	width        int
@@ -119,6 +120,9 @@ func manageDevboxes(ctx context.Context) error {
 	if manager.create && manager.createInputs != nil {
 		devboxName := namespace.NewDevboxName(manager.createInputs.Workspace)
 		return openDevbox(ctx, *manager.createInputs, "new-devbox", devboxName)
+	}
+	if manager.open != "" {
+		return openOrFocusDevbox(ctx, manager.createInputs, manager.open)
 	}
 	return nil
 }
@@ -212,6 +216,12 @@ func (m devboxManager) updateKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch key {
+	case "enter":
+		if selected, ok := m.selectedDevbox(); ok {
+			m.open = selected.Name
+			return m, tea.Quit
+		}
+		return m, nil
 	case "c":
 		if m.createInputs == nil {
 			m.message = "Create a Devbox from a Herdr workspace."
@@ -340,11 +350,11 @@ func (m devboxManager) View() tea.View {
 		}
 	}
 
-	footer := "↑/k up  ↓/j down  c create  s stop  d delete  r refresh  q/esc close"
+	footer := "enter open  ↑/k up  ↓/j down  c create  s stop  d delete  r refresh  q/esc close"
 	if m.operation != managerOperationNone {
 		footer = "Operation in progress · q/esc close"
 	} else if ansi.StringWidth(footer) > contentWidth {
-		footer = "↑/k ↓/j  c create  s stop  d delete  r refresh  q close"
+		footer = "enter open  ↑/k ↓/j  c create  s stop  d delete  r refresh  q close"
 	}
 	footer = ansi.Truncate(footer, contentWidth, "…")
 
