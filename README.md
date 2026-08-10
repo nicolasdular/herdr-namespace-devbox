@@ -1,6 +1,6 @@
 # Namespace Devbox for Herdr
 
-Open a persistent [Namespace Devbox](https://namespace.so/) in a new [Herdr](https://herdr.dev/) tab. Each Git worktree gets a stable default Devbox that the plugin creates on first use and reconnects to later.
+Open a persistent [Namespace Devbox](https://namespace.so/) in a new [Herdr](https://herdr.dev/) tab. Each Git worktree is treated as a workspace, even when an action runs from a nested directory.
 
 ## Requirements
 
@@ -8,7 +8,7 @@ Open a persistent [Namespace Devbox](https://namespace.so/) in a new [Herdr](htt
 - [Herdr](https://herdr.dev/docs/install/) 0.8.0 or newer
 - A Namespace account and the Namespace `devbox` CLI
 
-Install the Namespace CLI if it is not already available:
+Install the Namespace CLI:
 
 ```sh
 curl -fsSL https://get.namespace.so/devbox/install.sh | sh
@@ -23,45 +23,61 @@ Install the plugin directly from GitHub:
 herdr plugin install nicolasdular/herdr-namespace-devbox
 ```
 
-Herdr shows the plugin and its install command for review, then downloads the prebuilt binary for your operating system and architecture. Confirm that both actions are available:
+Herdr asks you to review the plugin and install command, then downloads the binary for your platform. Verify it with:
 
 ```sh
 herdr plugin action list --plugin namespace.devbox
 ```
 
-## Use it
+## Use the plugin
 
-From a Herdr workspace, open its default Devbox:
+### Open the workspace's default Devbox
+
+From a Herdr workspace, run:
 
 ```sh
 herdr plugin action invoke namespace.devbox.start-devbox
 ```
 
-The action opens a focused `Devbox · <workspace>` tab without changing the pane where it was invoked. Its first invocation starts the Namespace login flow when necessary, then creates a persistent Devbox for the current Git worktree. Later invocations reconnect to the existing Devbox in another new tab. Invoking the action from a nested directory still uses the Git worktree root.
+This opens a focused `Devbox · <workspace>` tab without changing the current pane. The Devbox is created when needed, and each invocation opens a new tab. Namespace login starts first when required.
 
-To create a separate Devbox without changing the workspace default:
+### Create an additional Devbox
 
 ```sh
 herdr plugin action invoke namespace.devbox.new-devbox
 ```
 
-The additional Devbox receives a unique name and opens in its own `Devbox · <workspace>` tab.
+This creates a separate Devbox without changing the workspace default.
 
-To list and stop any of your Namespace Devboxes in an interactive popup:
+### Manage all Devboxes
 
 ```sh
 herdr plugin action invoke namespace.devbox.manage-devboxes
 ```
 
-Use the arrow keys or `j`/`k` to select a Devbox, `enter` to focus its open tab anywhere in Herdr (or open a new tab), `c` to create a new Devbox in its own tab, `s` to stop it, `d` to permanently delete it, `r` to refresh the list, and `q` or `esc` to close the popup. Stop and delete operations require confirmation. Opening or creating a new tab requires an active Herdr workspace.
+The popup supports the following keys:
 
-To stop the workspace's default Devbox:
+| Key | Action |
+| --- | --- |
+| Arrow keys or `j`/`k` | Select a Devbox. |
+| `enter` | Focus the Devbox's existing tab anywhere in Herdr, or open it in a new tab if it is not already open. |
+| `c` | Create a new Devbox in its own tab. |
+| `s` | Stop the selected Devbox after confirmation. |
+| `d` | Permanently delete the selected Devbox after confirmation. |
+| `r` | Refresh the list. |
+| `q` or `esc` | Close the popup. |
+
+A workspace is required only to create or open a tab.
+
+### Stop the workspace's default Devbox
 
 ```sh
 herdr plugin action invoke namespace.devbox.stop-devbox
 ```
 
-## Add keybindings
+To stop a Devbox created with `new-devbox`, use `manage-devboxes` instead.
+
+## Keybindings
 
 Add these commands to Herdr's config at `~/.config/herdr/config.toml`:
 
@@ -91,13 +107,13 @@ Reload the config after saving it:
 herdr server reload-config
 ```
 
-With Herdr's default prefix, press `ctrl+b d` to manage Devboxes, `ctrl+b alt+d` to create a separate one, or `ctrl+b shift+s` to stop the workspace Devbox. These avoid Herdr's built-in bindings for closing a workspace (`prefix+shift+d`) and pane (`prefix+x`).
+With the default `ctrl+b` prefix, these become `ctrl+b d`, `ctrl+b alt+d`, and `ctrl+b shift+s`. They avoid the built-in workspace (`prefix+shift+d`) and pane (`prefix+x`) closing shortcuts.
 
 ## Configuration
 
-The plugin works without configuration by using a private, medium-sized `builtin:agents` Devbox with a one-hour idle timeout and a `herdr` Bash session. It clones the workspace's Git remote when one is available.
+The default is a private, medium-sized (`m`) `builtin:agents` Devbox with a one-hour idle timeout and a Bash session named `herdr`. The workspace's `origin` remote is cloned when available.
 
-To customize a workspace, create `devbox.yaml` at the Git worktree root:
+To customize a workspace, create `devbox.yaml` at its root. For example:
 
 ```yaml
 name: project-devbox
@@ -110,23 +126,27 @@ sessions:
     command: bash
 ```
 
-The YAML `name`, when present, becomes the workspace's default Devbox name; otherwise the plugin generates a stable name. The `new-devbox` action uses the same specification with a unique name. If the YAML does not declare a session, the plugin adds the default `herdr` Bash session. Both YAML-backed and default specifications are normalized to JSON and streamed to the Namespace CLI.
+`devbox.yaml` replaces the defaults; it does not merge with them. Include every setting you need. If `sessions` is omitted, the plugin adds the default `herdr` Bash session.
+
+`start-devbox` and `stop-devbox` use the YAML `name`, or a stable generated name when absent. `new-devbox` always replaces it with a unique name.
+
+The plugin converts the YAML to JSON for the Namespace CLI. Unknown fields cause an error.
 
 ## Update or uninstall
 
-Reinstall the GitHub plugin to update it. Workspace `devbox.yaml` files remain in their repositories:
+Reinstall to update; `devbox.yaml` files are unchanged:
 
 ```sh
 herdr plugin install nicolasdular/herdr-namespace-devbox
 ```
 
-Uninstall the plugin with:
+Uninstall with:
 
 ```sh
 herdr plugin uninstall namespace.devbox
 ```
 
-Uninstalling the plugin does not delete Devboxes from your Namespace account.
+Namespace Devboxes are not deleted.
 
 ## Troubleshooting
 
@@ -138,18 +158,16 @@ herdr plugin action list --plugin namespace.devbox
 herdr plugin log list --plugin namespace.devbox
 ```
 
-Check the Namespace CLI and authentication separately:
+Check the CLI and authentication:
 
 ```sh
 devbox --version
 devbox auth check-login
 ```
 
-If login is required, invoke either plugin action again and complete the displayed login flow.
-
 ## Development
 
-Go and mise are only required when working on the plugin itself:
+Plugin development requires Go and mise:
 
 ```sh
 git clone https://github.com/nicolasdular/herdr-namespace-devbox.git
@@ -160,7 +178,9 @@ mise run check
 herdr plugin link "$PWD"
 ```
 
-`herdr plugin link` uses the locally built `bin/herdr-namespace`; unlike `plugin install`, it does not run the manifest's build command. Remove the development link with:
+`herdr plugin link` uses the locally built `bin/herdr-namespace`; it does not build it. Run `mise run install` first.
+
+Remove the development link with:
 
 ```sh
 herdr plugin unlink namespace.devbox
@@ -168,11 +188,11 @@ herdr plugin unlink namespace.devbox
 
 ### Publishing a release
 
-Set `version` in `herdr-plugin.toml`, commit the change, and push a matching tag such as `v0.2.0`. The release workflow uses GoReleaser to cross-compile macOS and Linux archives for Intel and ARM, generates `checksums.txt`, and publishes everything to the GitHub release. The tag and manifest version must match exactly.
+Set `version` in `herdr-plugin.toml`, commit it, and push a matching tag. Both versions must match exactly.
 
 ```sh
 git tag -a v0.2.0 -m "Release v0.2.0"
 git push origin v0.2.0
 ```
 
-After the workflow succeeds, test a clean managed installation with `herdr plugin install nicolasdular/herdr-namespace-devbox`.
+GoReleaser publishes macOS and Linux archives for Intel and ARM, plus `checksums.txt`. When it finishes, test a clean installation with `herdr plugin install nicolasdular/herdr-namespace-devbox`.
