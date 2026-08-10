@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"herdr-namespace/internal/command"
 	"herdr-namespace/internal/namespace"
 )
 
@@ -46,6 +47,7 @@ func connectSession(ctx context.Context, args []string) error {
 	repository := flags.String("repository", "", "Git repository to clone when creating the Devbox")
 	workspace := flags.String("workspace", "", "workspace directory")
 	existing := flags.Bool("existing", false, "connect without loading a workspace Devbox specification")
+	uploadLocalChanges := flags.Bool("upload-local-changes", false, "apply tracked local changes to a newly created Devbox")
 
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -66,19 +68,17 @@ func connectSession(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	exists, err := client.Exists(ctx, *name)
-	if err != nil {
+	localChanges := newGitLocalChangesService(command.OSRunner{})
+	if err := ensureDevbox(
+		ctx,
+		client,
+		localChanges,
+		*workspace,
+		spec,
+		*uploadLocalChanges,
+		os.Stdout,
+	); err != nil {
 		return err
-	}
-
-	if exists {
-		fmt.Printf("Reconnecting to persistent Namespace Devbox %s...\n", *name)
-	} else {
-		fmt.Printf("Creating persistent Namespace Devbox %s...\n", *name)
-		if err := client.Create(ctx, spec); err != nil {
-			return err
-		}
 	}
 
 	return attachToSession(ctx, client, spec.SessionName(), *name)

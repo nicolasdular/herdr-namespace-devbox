@@ -92,6 +92,7 @@ type Devbox struct {
 	LastUsedAt    string        `json:"last_used_at"`
 	Repository    string        `json:"repository"`
 	Site          string        `json:"site"`
+	DefaultDir    string        `json:"default_dir"`
 	InstanceShape InstanceShape `json:"instance_shape"`
 }
 
@@ -123,6 +124,22 @@ func (c Client) Create(ctx context.Context, spec Spec) error {
 	args := []string{"create", "--from", "-", "--from_format", "json"}
 	if err := c.cmd.RunWithStdin(ctx, bytes.NewReader(contents), args...); err != nil {
 		return fmt.Errorf("Namespace could not create Devbox %s: %w", spec.Name, err)
+	}
+	return nil
+}
+
+func (c Client) Upload(ctx context.Context, name, localPath, remotePath string) error {
+	if err := c.cmd.Run(ctx, "upload", name, localPath, remotePath); err != nil {
+		return fmt.Errorf("upload local changes to Devbox %s: %w", name, err)
+	}
+	return nil
+}
+
+func (c Client) Exec(ctx context.Context, name string, args ...string) error {
+	commandArgs := []string{"exec", name, "--"}
+	commandArgs = append(commandArgs, args...)
+	if err := c.cmd.Run(ctx, commandArgs...); err != nil {
+		return fmt.Errorf("run command in Devbox %s: %w", name, err)
 	}
 	return nil
 }

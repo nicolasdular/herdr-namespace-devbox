@@ -108,6 +108,22 @@ func TestCreateStreamsGeneratedSpecToDevbox(t *testing.T) {
 	require.Contains(t, string(contents), `"url":"github.com/acme/demo"`)
 }
 
+func TestUploadCopiesPatchToNamedDevbox(t *testing.T) {
+	runner := &recordingRunner{}
+	client := testClient(runner)
+
+	require.NoError(t, client.Upload(context.Background(), "box-one", "/tmp/local.patch", "/tmp/remote.patch"))
+	require.Equal(t, []string{"upload", "box-one", "/tmp/local.patch", "/tmp/remote.patch"}, runner.calls[0].args)
+}
+
+func TestExecRunsCommandInNamedDevbox(t *testing.T) {
+	runner := &recordingRunner{}
+	client := testClient(runner)
+
+	require.NoError(t, client.Exec(context.Background(), "box-one", "git", "status", "--short"))
+	require.Equal(t, []string{"exec", "box-one", "--", "git", "status", "--short"}, runner.calls[0].args)
+}
+
 func TestStopForcesNamedDevboxToStop(t *testing.T) {
 	runner := &recordingRunner{}
 	client := testClient(runner)
@@ -127,7 +143,7 @@ func TestDeleteForcesNamedDevboxToExpire(t *testing.T) {
 }
 
 func TestListReturnsDevboxDetails(t *testing.T) {
-	runner := &recordingRunner{output: []byte(`[{"id":"box-1","name":"demo","repository":"github.com/acme/demo","site":"zrh","volume_size_gb":"150","instance_shape":{"virtual_cpu":8,"memory_megabytes":16384}}]`)}
+	runner := &recordingRunner{output: []byte(`[{"id":"box-1","name":"demo","repository":"github.com/acme/demo","site":"zrh","default_dir":"/workspaces/demo","volume_size_gb":"150","instance_shape":{"virtual_cpu":8,"memory_megabytes":16384}}]`)}
 	client := testClient(runner)
 
 	devboxes, err := client.List(context.Background())
@@ -137,6 +153,7 @@ func TestListReturnsDevboxDetails(t *testing.T) {
 		Name:       "demo",
 		Repository: "github.com/acme/demo",
 		Site:       "zrh",
+		DefaultDir: "/workspaces/demo",
 		InstanceShape: InstanceShape{
 			VirtualCPU:      8,
 			MemoryMegabytes: 16384,

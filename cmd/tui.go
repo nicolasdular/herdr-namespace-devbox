@@ -17,6 +17,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"herdr-namespace/internal/command"
 	"herdr-namespace/internal/namespace"
 )
 
@@ -40,6 +41,11 @@ type managerOperationResult struct {
 	target    string
 	devboxes  []namespace.Devbox
 	err       error
+}
+
+type trackedChangesResult struct {
+	info LocalChangesInfo
+	err  error
 }
 
 type devboxItem struct {
@@ -86,19 +92,24 @@ func (d devboxDelegate) Render(output io.Writer, model list.Model, index int, it
 }
 
 type devboxManager struct {
-	ctx          context.Context
-	client       managerClient
-	createInputs *ActionInputs
-	create       bool
-	open         string
-	list         list.Model
-	spinner      spinner.Model
-	width        int
-	height       int
-	confirmation managerOperation
-	operation    managerOperation
-	target       string
-	message      string
+	ctx            context.Context
+	client         managerClient
+	localChanges   LocalChangesService
+	createInputs   *ActionInputs
+	createForm     *devboxCreateForm
+	createFormErr  error
+	showCreateForm bool
+	createField    createFormField
+	create         bool
+	open           string
+	list           list.Model
+	spinner        spinner.Model
+	width          int
+	height         int
+	confirmation   managerOperation
+	operation      managerOperation
+	target         string
+	message        string
 }
 
 func manageDevboxes(ctx context.Context) error {
@@ -108,18 +119,31 @@ func manageDevboxes(ctx context.Context) error {
 		return nil
 	}
 
-	manager := newDevboxManager(ctx, client)
+	localChanges := newGitLocalChangesService(command.OSRunner{})
+	manager := newDevboxManager(ctx, client, localChanges)
 	if inputs, inputErr := loadActionInputs(); inputErr == nil {
 		manager.createInputs = &inputs
+		plan, formErr := resolveCreatePlan(ctx, inputs, command.OSRunner{})
+		if formErr != nil {
+			manager.createFormErr = formErr
+		} else {
+			form := newDevboxCreateForm(plan)
+			manager.createForm = &form
+		}
 	}
 	finalModel, err := tea.NewProgram(manager, tea.WithContext(ctx)).Run()
 	if err != nil {
 		return err
 	}
 	manager = finalModel.(devboxManager)
-	if manager.create && manager.createInputs != nil {
-		devboxName := namespace.NewDevboxName(manager.createInputs.Workspace)
-		return openDevbox(ctx, *manager.createInputs, "new-devbox", devboxName)
+	if manager.create && manager.createInputs != nil && manager.createForm != nil {
+		return openDevbox(
+			ctx,
+			*manager.createInputs,
+			"new-devbox",
+			manager.createForm.Plan.Name,
+			manager.createForm.UploadLocalChanges,
+		)
 	}
 	if manager.open != "" {
 		return openOrFocusDevbox(ctx, manager.createInputs, manager.open)
@@ -127,7 +151,11 @@ func manageDevboxes(ctx context.Context) error {
 	return nil
 }
 
-func newDevboxManager(ctx context.Context, client managerClient) devboxManager {
+func newDevboxManager(
+	ctx context.Context,
+	client managerClient,
+	localChanges LocalChangesService,
+) devboxManager {
 	const defaultWidth, defaultHeight = 80, 24
 	delegate := devboxDelegate{now: time.Now}
 	devboxes := list.New(nil, delegate, defaultWidth-4, defaultHeight-6)
@@ -140,14 +168,15 @@ func newDevboxManager(ctx context.Context, client managerClient) devboxManager {
 	devboxes.KeyMap.NextPage.SetKeys("right", "l", "pgdown", "f")
 
 	return devboxManager{
-		ctx:       ctx,
-		client:    client,
-		list:      devboxes,
-		spinner:   spinner.New(spinner.WithSpinner(spinner.MiniDot)),
-		width:     defaultWidth,
-		height:    defaultHeight,
-		operation: managerOperationRefresh,
-		message:   "Loading Devboxes…",
+		ctx:          ctx,
+		client:       client,
+		localChanges: localChanges,
+		list:         devboxes,
+		spinner:      spinner.New(spinner.WithSpinner(spinner.MiniDot)),
+		width:        defaultWidth,
+		height:       defaultHeight,
+		operation:    managerOperationRefresh,
+		message:      "Loading Devboxes…",
 	}
 }
 
@@ -170,8 +199,14 @@ func (m devboxManager) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.finishOperation(message)
 		return m, nil
 
+	case trackedChangesResult:
+		if m.createForm != nil {
+			m.createForm.finishChangesInspection(message.info, message.err)
+		}
+		return m, nil
+
 	case spinner.TickMsg:
-		if m.operation == managerOperationNone {
+		if m.operation == managerOperationNone && (m.createForm == nil || m.createForm.ChangesState != changesLoading) {
 			return m, nil
 		}
 		var command tea.Cmd
@@ -191,6 +226,9 @@ func (m devboxManager) updateKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		return m, nil
+	}
+	if m.showCreateForm {
+		return m.updateCreateForm(key)
 	}
 
 	if m.confirmation != managerOperationNone {
@@ -227,8 +265,20 @@ func (m devboxManager) updateKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.message = "Create a Devbox from a Herdr workspace."
 			return m, nil
 		}
-		m.create = true
-		return m, tea.Quit
+		if m.createFormErr != nil {
+			m.message = m.createFormErr.Error()
+			return m, nil
+		}
+		if m.createForm == nil {
+			m.message = "Could not prepare a new Devbox."
+			return m, nil
+		}
+		m.showCreateForm = true
+		m.createField = createFormUpload
+		if !m.createForm.beginChangesInspection() {
+			return m, nil
+		}
+		return m, tea.Batch(m.spinner.Tick, m.trackedChangesCmd())
 	case "s":
 		if m.list.SelectedItem() != nil {
 			m.confirmation = managerOperationStop
@@ -252,6 +302,50 @@ func (m devboxManager) updateKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var command tea.Cmd
 	m.list, command = m.list.Update(message)
 	return m, command
+}
+
+func (m devboxManager) updateCreateForm(key string) (tea.Model, tea.Cmd) {
+	canUpload := m.createForm != nil && m.createForm.canUploadLocalChanges()
+	switch key {
+	case "up", "k", "shift+tab":
+		m.moveCreateField(-1)
+	case "down", "j", "tab":
+		m.moveCreateField(1)
+	case "space", "left", "right":
+		if m.createField == createFormUpload && canUpload {
+			m.createForm.UploadLocalChanges = !m.createForm.UploadLocalChanges
+		}
+	case "enter":
+		switch m.createField {
+		case createFormUpload:
+			if canUpload {
+				m.createForm.UploadLocalChanges = !m.createForm.UploadLocalChanges
+			}
+		case createFormSubmit:
+			m.create = true
+			return m, tea.Quit
+		}
+	case "esc":
+		m.showCreateForm = false
+	case "q", "ctrl+c":
+		return m, tea.Quit
+	}
+	return m, nil
+}
+
+func (m *devboxManager) moveCreateField(delta int) {
+	next := (int(m.createField) + delta + int(createFormFieldCount)) % int(createFormFieldCount)
+	m.createField = createFormField(next)
+}
+
+func (m devboxManager) trackedChangesCmd() tea.Cmd {
+	workspace := m.createInputs.Workspace
+	repository := *m.createForm.Plan.Repository
+	localChanges := m.localChanges
+	return func() tea.Msg {
+		info, err := localChanges.Inspect(m.ctx, workspace, repository)
+		return trackedChangesResult{info: info, err: err}
+	}
 }
 
 func (m devboxManager) operationCmd(operation managerOperation, target string) tea.Cmd {
@@ -331,6 +425,9 @@ func (m *devboxManager) resizeList() {
 }
 
 func (m devboxManager) View() tea.View {
+	if m.showCreateForm && m.createForm != nil {
+		return m.createFormView()
+	}
 	contentWidth := max(m.width-4, 26)
 	count := len(m.list.Items())
 	header := lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%d Devbox%s", count, plural(count)))

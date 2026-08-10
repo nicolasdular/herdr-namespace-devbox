@@ -61,13 +61,13 @@ The popup supports the following keys:
 | --- | --- |
 | Arrow keys or `j`/`k` | Select a Devbox. |
 | `enter` | Focus the Devbox's existing tab anywhere in Herdr, or open it in a new tab if it is not already open. |
-| `c` | Create a new Devbox in its own tab. |
+| `c` | Open the creation form for a new Devbox. The form can optionally upload tracked local changes. |
 | `s` | Stop the selected Devbox after confirmation. |
 | `d` | Permanently delete the selected Devbox after confirmation. |
 | `r` | Refresh the list. |
 | `q` or `esc` | Close the popup. |
 
-A workspace is required only to create or open a tab.
+A workspace is required only to create or open a tab. New Devboxes default to a clean repository checkout. In the creation form, enable **Local changes** to apply staged and unstaged modifications to tracked files before connecting; untracked and ignored files are never uploaded.
 
 ### Stop the workspace's default Devbox
 

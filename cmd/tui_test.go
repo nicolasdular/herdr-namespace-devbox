@@ -24,6 +24,32 @@ type managerTestClient struct {
 	deleted   []string
 }
 
+type localChangesStub struct {
+	info      LocalChangesInfo
+	patch     []byte
+	err       error
+	inspected []string
+	generated []string
+}
+
+func (s *localChangesStub) Inspect(
+	_ context.Context,
+	workspace string,
+	_ namespace.Repository,
+) (LocalChangesInfo, error) {
+	s.inspected = append(s.inspected, workspace)
+	return s.info, s.err
+}
+
+func (s *localChangesStub) GeneratePatch(
+	_ context.Context,
+	workspace string,
+	_ namespace.Repository,
+) ([]byte, error) {
+	s.generated = append(s.generated, workspace)
+	return s.patch, s.err
+}
+
 func (c *managerTestClient) List(context.Context) ([]namespace.Devbox, error) {
 	return append([]namespace.Devbox(nil), c.devboxes...), c.listErr
 }
@@ -40,7 +66,7 @@ func (c *managerTestClient) Delete(_ context.Context, name string) error {
 
 func managerWithDevboxes(t *testing.T, client *managerTestClient) devboxManager {
 	t.Helper()
-	manager := newDevboxManager(context.Background(), client)
+	manager := newDevboxManager(context.Background(), client, &localChangesStub{})
 	manager.finishOperation(managerOperationResult{
 		operation: managerOperationRefresh,
 		devboxes:  client.devboxes,
@@ -177,18 +203,100 @@ func TestManagerConfirmationCancelDoesNotQuit(t *testing.T) {
 	require.NotNil(t, command)
 }
 
-func TestManagerCreateClosesPopupAndRequestsNewDevbox(t *testing.T) {
+func TestManagerCreateFormTogglesLocalChangesAndConfirms(t *testing.T) {
 	manager := managerWithDevboxes(t, &managerTestClient{})
 	manager.createInputs = &ActionInputs{
 		PluginExecutable: "/tmp/herdr-namespace",
 		Workspace:        "/tmp/demo",
 	}
+	manager.createForm = &devboxCreateForm{
+		Plan: DevboxCreatePlan{
+			Name:       "herdr-demo-123",
+			Repository: &namespace.Repository{URL: "github.com/acme/demo"},
+			Image:      "builtin:agents",
+			Size:       "m",
+			Site:       "automatic",
+		},
+	}
+	changes := &localChangesStub{info: LocalChangesInfo{BaseCommit: "abc123", FileCount: 3}}
+	manager.localChanges = changes
 
 	manager, command := pressManagerKey(t, manager, 'c')
+	require.True(t, manager.showCreateForm)
+	require.Equal(t, createFormUpload, manager.createField)
+	require.False(t, manager.create)
+	require.NotNil(t, command)
+	require.Contains(t, manager.View().Content, "Inspecting tracked local changes")
+	result := manager.trackedChangesCmd()().(trackedChangesResult)
+	updated, _ := manager.Update(result)
+	manager = updated.(devboxManager)
+	require.Equal(t, []string{"/tmp/demo"}, changes.inspected)
+	require.Contains(t, manager.View().Content, "Create Namespace Devbox")
+	require.Contains(t, manager.View().Content, "github.com/acme/demo")
+	require.Contains(t, manager.View().Content, "Location")
+	require.Contains(t, manager.View().Content, "Closest available")
+	require.Contains(t, manager.View().Content, "3 tracked files changed")
+	require.Contains(t, manager.View().Content, "[ No ]   Yes")
+
+	manager, _ = pressManagerKey(t, manager, 'y')
+	require.False(t, manager.createForm.UploadLocalChanges)
+	manager, _ = pressManagerKey(t, manager, ' ')
+	require.True(t, manager.createForm.UploadLocalChanges)
+	require.Contains(t, manager.View().Content, "No   [ Yes ]")
+
+	updated, _ = manager.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	manager = updated.(devboxManager)
+	require.Equal(t, createFormSubmit, manager.createField)
+	updated, command = manager.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	manager = updated.(devboxManager)
 
 	require.True(t, manager.create)
 	require.NotNil(t, command)
+}
+
+func TestManagerCreateFormDefaultsToNoAndReturnsToList(t *testing.T) {
+	manager := managerWithDevboxes(t, &managerTestClient{})
+	manager.createInputs = &ActionInputs{Workspace: "/tmp/demo"}
+	manager.createForm = &devboxCreateForm{Plan: DevboxCreatePlan{Name: "herdr-demo-123", Site: "automatic"}}
+
+	manager, _ = pressManagerKey(t, manager, 'c')
+	require.Contains(t, manager.View().Content, "No tracked changes")
+	manager, _ = pressManagerKey(t, manager, ' ')
+	require.False(t, manager.createForm.UploadLocalChanges)
+
+	updated, command := manager.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	manager = updated.(devboxManager)
+	require.False(t, manager.showCreateForm)
+	require.Nil(t, command)
 	require.Contains(t, manager.View().Content, "c create")
+}
+
+func TestManagerCreateFormSelectsReadOnlyFieldsWithoutSubmitting(t *testing.T) {
+	manager := managerWithDevboxes(t, &managerTestClient{})
+	manager.createInputs = &ActionInputs{Workspace: "/tmp/demo"}
+	manager.createForm = &devboxCreateForm{
+		Plan: DevboxCreatePlan{
+			Name:       "herdr-demo-123",
+			Repository: &namespace.Repository{URL: "github.com/acme/demo"},
+			Image:      "builtin:agents",
+			Size:       "m",
+			Site:       "zrh",
+		},
+		ChangesState:   changesAvailable,
+		TrackedChanges: 1,
+	}
+
+	manager, _ = pressManagerKey(t, manager, 'c')
+	updated, _ := manager.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	manager = updated.(devboxManager)
+	require.Equal(t, createFormLocation, manager.createField)
+	require.Contains(t, manager.View().Content, "Location")
+	require.Contains(t, manager.View().Content, "Editing is not available yet")
+
+	updated, command := manager.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	manager = updated.(devboxManager)
+	require.False(t, manager.create)
+	require.Nil(t, command)
 }
 
 func TestManagerCreateRequiresWorkspaceContext(t *testing.T) {
@@ -217,7 +325,7 @@ func TestManagerEnterClosesPopupAndRequestsSelectedDevbox(t *testing.T) {
 }
 
 func TestManagerRemainsResponsiveDuringOperation(t *testing.T) {
-	manager := newDevboxManager(context.Background(), &managerTestClient{})
+	manager := newDevboxManager(context.Background(), &managerTestClient{}, &localChangesStub{})
 	manager.operation = managerOperationStop
 	manager.target = "demo"
 	manager.message = "Stopping demo… This may take up to a minute."

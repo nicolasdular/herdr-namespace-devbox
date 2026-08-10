@@ -23,6 +23,7 @@ func openDevbox(
 	inputs ActionInputs,
 	actionID string,
 	devboxName string,
+	uploadLocalChanges bool,
 ) error {
 	runner := command.OSRunner{}
 	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
@@ -33,6 +34,9 @@ func openDevbox(
 	}
 	if repository := repositoryURL(ctx, runner, inputs.Workspace); repository != "" {
 		args = append(args, "--repository", repository)
+	}
+	if uploadLocalChanges {
+		args = append(args, "--upload-local-changes")
 	}
 	tab, err := launchDevboxTab(ctx, herdrClient, inputs, tabTitle(inputs.Workspace), devboxName, args...)
 	if err != nil {
