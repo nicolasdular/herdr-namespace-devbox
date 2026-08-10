@@ -2,6 +2,12 @@
 
 Open a persistent [Namespace Devbox](https://namespace.so/) in a new [Herdr](https://herdr.dev/) tab. Each Git worktree is treated as a workspace, even when an action runs from a nested directory.
 
+## Demo
+
+
+https://github.com/user-attachments/assets/d8ed8f1e-131d-4b6e-90de-2a59fc9f3fff
+
+
 ## Requirements
 
 - macOS or Linux
