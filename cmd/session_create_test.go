@@ -13,18 +13,20 @@ import (
 
 type creationClientStub struct {
 	fakePatchClient
-	exists      bool
-	existsErr   error
-	createErr   error
-	createdSpec *namespace.Spec
+	exists         bool
+	existsErr      error
+	createErr      error
+	createdSpec    *namespace.Spec
+	createdOptions *namespace.CreateOptions
 }
 
 func (c *creationClientStub) Exists(context.Context, string) (bool, error) {
 	return c.exists, c.existsErr
 }
 
-func (c *creationClientStub) Create(_ context.Context, spec namespace.Spec) error {
+func (c *creationClientStub) Create(_ context.Context, spec namespace.Spec, options namespace.CreateOptions) error {
 	c.createdSpec = &spec
+	c.createdOptions = &options
 	return c.createErr
 }
 
@@ -37,12 +39,14 @@ func TestEnsureDevboxGeneratesPatchBeforeCreating(t *testing.T) {
 		Name:       "demo",
 		Repository: &namespace.Repository{URL: "github.com/acme/demo", Ref: "main"},
 	}
+	options := namespace.CreateOptions{Dotfiles: "github.com/acme/dotfiles"}
 	var output bytes.Buffer
 
-	err := ensureDevbox(context.Background(), client, changes, "/local/demo", spec, true, &output)
+	err := ensureDevbox(context.Background(), client, changes, "/local/demo", spec, options, true, &output)
 	require.NoError(t, err)
 	require.Equal(t, []string{"/local/demo"}, changes.generated)
 	require.Equal(t, spec, *client.createdSpec)
+	require.Equal(t, options, *client.createdOptions)
 	require.Equal(t, []byte("binary patch"), client.uploaded)
 	require.Contains(t, output.String(), "Creating persistent Namespace Devbox demo")
 	require.Contains(t, output.String(), "Uploading 12 B")
@@ -56,7 +60,7 @@ func TestEnsureDevboxDoesNotCreateWhenPatchGenerationFails(t *testing.T) {
 		Repository: &namespace.Repository{URL: "github.com/acme/demo"},
 	}
 
-	err := ensureDevbox(context.Background(), client, changes, "/local/demo", spec, true, &bytes.Buffer{})
+	err := ensureDevbox(context.Background(), client, changes, "/local/demo", spec, namespace.CreateOptions{}, true, &bytes.Buffer{})
 	require.EqualError(t, err, "wrong repository")
 	require.Nil(t, client.createdSpec)
 }
@@ -67,7 +71,7 @@ func TestEnsureDevboxReconnectSkipsLocalChanges(t *testing.T) {
 	spec := namespace.Spec{Name: "demo"}
 	var output bytes.Buffer
 
-	err := ensureDevbox(context.Background(), client, changes, "/local/demo", spec, true, &output)
+	err := ensureDevbox(context.Background(), client, changes, "/local/demo", spec, namespace.CreateOptions{}, true, &output)
 	require.NoError(t, err)
 	require.Empty(t, changes.generated)
 	require.Nil(t, client.createdSpec)

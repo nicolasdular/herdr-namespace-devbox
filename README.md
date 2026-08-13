@@ -127,6 +127,9 @@ image: builtin:agents
 size: m
 access_mode: private
 auto_stop_idle_timeout: 1h
+env:
+  - name: MISE_DISABLE_TOOLS
+    value: postgres
 sessions:
   - name: herdr
     command: bash
@@ -137,6 +140,26 @@ sessions:
 `start-devbox` and `stop-devbox` use the YAML `name`, or a stable generated name when absent. `new-devbox` always replaces it with a unique name.
 
 The plugin converts the YAML to JSON for the Namespace CLI. Unknown fields cause an error.
+
+Personal creation options live in Herdr's global plugin `config.json`, keeping
+`devbox.yaml` compatible with the official Namespace specification. Find the
+configuration directory with:
+
+```sh
+herdr plugin config-dir namespace.devbox
+```
+
+Configure the dotfiles repository:
+
+```json
+{
+  "dotfiles": "github.com/acme/dotfiles"
+}
+```
+
+Dotfiles are applied globally to newly created Devboxes through the
+`devbox create --dotfiles` option. Changing this setting does not reconfigure
+an existing Devbox.
 
 ## Update or uninstall
 

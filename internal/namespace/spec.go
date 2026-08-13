@@ -12,24 +12,29 @@ import (
 
 const defaultSessionName = "herdr"
 
-// Spec is the normalized Namespace Devbox specification. It can be decoded
-// from devbox.yaml and encoded directly as the JSON accepted by the Devbox CLI.
+// Spec is the normalized Namespace Devbox specification loaded from
+// devbox.yaml and encoded as the JSON accepted by the Devbox CLI.
 type Spec struct {
-	Name                string        `json:"name" yaml:"name"`
-	Purpose             string        `json:"purpose,omitempty" yaml:"purpose,omitempty"`
-	Image               string        `json:"image,omitempty" yaml:"image,omitempty"`
-	Size                string        `json:"size,omitempty" yaml:"size,omitempty"`
-	AccessMode          string        `json:"access_mode,omitempty" yaml:"access_mode,omitempty"`
-	AutoStopIdleTimeout string        `json:"auto_stop_idle_timeout,omitempty" yaml:"auto_stop_idle_timeout,omitempty"`
-	Repository          *Repository   `json:"repository,omitempty" yaml:"repository,omitempty"`
-	Dotfiles            string        `json:"dotfiles,omitempty" yaml:"dotfiles,omitempty"`
-	PrivateFeatures     []string      `json:"private_features,omitempty" yaml:"private_features,omitempty"`
-	Sessions            []Session     `json:"sessions,omitempty" yaml:"sessions,omitempty"`
-	Integrations        *Integrations `json:"integrations,omitempty" yaml:"integrations,omitempty"`
-	VolumeSizeGB        *int          `json:"volume_size_gb,omitempty" yaml:"volume_size_gb,omitempty"`
-	Site                *string       `json:"site,omitempty" yaml:"site,omitempty"`
-	Ephemeral           bool          `json:"ephemeral,omitempty" yaml:"ephemeral,omitempty"`
-	Privileged          bool          `json:"privileged,omitempty" yaml:"privileged,omitempty"`
+	Name                string                `json:"name" yaml:"name"`
+	Purpose             string                `json:"purpose,omitempty" yaml:"purpose,omitempty"`
+	Image               string                `json:"image,omitempty" yaml:"image,omitempty"`
+	Size                string                `json:"size,omitempty" yaml:"size,omitempty"`
+	AccessMode          string                `json:"access_mode,omitempty" yaml:"access_mode,omitempty"`
+	AutoStopIdleTimeout string                `json:"auto_stop_idle_timeout,omitempty" yaml:"auto_stop_idle_timeout,omitempty"`
+	Repository          *Repository           `json:"repository,omitempty" yaml:"repository,omitempty"`
+	Env                 []EnvironmentVariable `json:"env,omitempty" yaml:"env,omitempty"`
+	PrivateFeatures     []string              `json:"private_features,omitempty" yaml:"private_features,omitempty"`
+	Sessions            []Session             `json:"sessions,omitempty" yaml:"sessions,omitempty"`
+	Integrations        *Integrations         `json:"integrations,omitempty" yaml:"integrations,omitempty"`
+	VolumeSizeGB        *int                  `json:"volume_size_gb,omitempty" yaml:"volume_size_gb,omitempty"`
+	Site                *string               `json:"site,omitempty" yaml:"site,omitempty"`
+	Ephemeral           bool                  `json:"ephemeral,omitempty" yaml:"ephemeral,omitempty"`
+	Privileged          bool                  `json:"privileged,omitempty" yaml:"privileged,omitempty"`
+}
+
+type EnvironmentVariable struct {
+	Name  string `json:"name" yaml:"name"`
+	Value string `json:"value" yaml:"value"`
 }
 
 type Repository struct {

@@ -39,12 +39,14 @@ func TestLoadActionInputsUsesWorkspaceRoot(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Setenv("HERDR_PLUGIN_CONTEXT_JSON", string(contextJSON))
+	t.Setenv("HERDR_PLUGIN_CONFIG_DIR", "/plugin/config")
 
 	inputs, err := loadActionInputs()
 	require.NoError(t, err)
 	workspaceRoot, err := filepath.EvalSymlinks(repository)
 	require.NoError(t, err)
 	require.Equal(t, workspaceRoot, inputs.Workspace)
+	require.Equal(t, "/plugin/config", inputs.PluginConfigDir)
 }
 
 func TestLoadActionInputsDoesNotRequireFocusedPane(t *testing.T) {

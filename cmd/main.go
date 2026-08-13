@@ -13,6 +13,7 @@ import (
 
 type ActionInputs struct {
 	PluginExecutable string
+	PluginConfigDir  string
 	Workspace        string
 	PaneID           string
 }
@@ -75,6 +76,7 @@ func loadActionInputs() (ActionInputs, error) {
 	if err != nil {
 		return ActionInputs{}, err
 	}
+	inputs.PluginConfigDir = os.Getenv("HERDR_PLUGIN_CONFIG_DIR")
 
 	herdrContext, err := herdr.ParseContext(os.Getenv("HERDR_PLUGIN_CONTEXT_JSON"))
 	if err != nil {

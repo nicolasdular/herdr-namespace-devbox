@@ -46,6 +46,7 @@ func connectSession(ctx context.Context, args []string) error {
 	name := flags.String("name", "", "Devbox name")
 	repository := flags.String("repository", "", "Git repository to clone when creating the Devbox")
 	workspace := flags.String("workspace", "", "workspace directory")
+	dotfiles := flags.String("dotfiles", "", "dotfiles repository configured by Herdr")
 	existing := flags.Bool("existing", false, "connect without loading a workspace Devbox specification")
 	uploadLocalChanges := flags.Bool("upload-local-changes", false, "apply tracked local changes to a newly created Devbox")
 
@@ -68,6 +69,7 @@ func connectSession(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+	createOptions := namespace.CreateOptions{Dotfiles: *dotfiles}
 	localChanges := newGitLocalChangesService(command.OSRunner{})
 	if err := ensureDevbox(
 		ctx,
@@ -75,6 +77,7 @@ func connectSession(ctx context.Context, args []string) error {
 		localChanges,
 		*workspace,
 		spec,
+		createOptions,
 		*uploadLocalChanges,
 		os.Stdout,
 	); err != nil {

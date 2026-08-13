@@ -27,10 +27,17 @@ func openDevbox(
 ) error {
 	runner := command.OSRunner{}
 	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
+	createOptions, err := namespace.LoadCreateOptions(inputs.PluginConfigDir)
+	if err != nil {
+		return err
+	}
 	args := []string{
 		"connect-session",
 		"--name", devboxName,
 		"--workspace", inputs.Workspace,
+	}
+	if createOptions.Dotfiles != "" {
+		args = append(args, "--dotfiles", createOptions.Dotfiles)
 	}
 	if repository := repositoryURL(ctx, runner, inputs.Workspace); repository != "" {
 		args = append(args, "--repository", repository)

@@ -116,12 +116,15 @@ func parseDevboxList(output []byte) ([]Devbox, error) {
 	return devboxes, nil
 }
 
-func (c Client) Create(ctx context.Context, spec Spec) error {
+func (c Client) Create(ctx context.Context, spec Spec, options CreateOptions) error {
 	contents, err := json.Marshal(spec)
 	if err != nil {
 		return err
 	}
 	args := []string{"create", "--from", "-", "--from_format", "json"}
+	if options.Dotfiles != "" {
+		args = append(args, "--dotfiles", options.Dotfiles)
+	}
 	if err := c.cmd.RunWithStdin(ctx, bytes.NewReader(contents), args...); err != nil {
 		return fmt.Errorf("Namespace could not create Devbox %s: %w", spec.Name, err)
 	}

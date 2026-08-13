@@ -98,14 +98,24 @@ func TestConnectWithoutSessionLetsNamespaceChoose(t *testing.T) {
 func TestCreateStreamsGeneratedSpecToDevbox(t *testing.T) {
 	runner := &recordingRunner{}
 	client := testClient(runner)
-	spec := Spec{Name: "demo", Repository: &Repository{URL: "github.com/acme/demo"}}
+	spec := Spec{
+		Name:       "demo",
+		Repository: &Repository{URL: "github.com/acme/demo"},
+		Env:        []EnvironmentVariable{{Name: "MISE_DISABLE_TOOLS", Value: "postgres"}},
+	}
+	options := CreateOptions{Dotfiles: "github.com/acme/dotfiles"}
 
-	require.NoError(t, client.Create(context.Background(), spec))
-	require.Equal(t, []string{"create", "--from", "-", "--from_format", "json"}, runner.calls[0].args)
+	require.NoError(t, client.Create(context.Background(), spec, options))
+	require.Equal(t, []string{
+		"create", "--from", "-", "--from_format", "json",
+		"--dotfiles", "github.com/acme/dotfiles",
+	}, runner.calls[0].args)
 	contents, err := io.ReadAll(runner.calls[0].stdin)
 	require.NoError(t, err)
 	require.Contains(t, string(contents), `"name":"demo"`)
 	require.Contains(t, string(contents), `"url":"github.com/acme/demo"`)
+	require.Contains(t, string(contents), `"env":[{"name":"MISE_DISABLE_TOOLS","value":"postgres"}]`)
+	require.NotContains(t, string(contents), `"dotfiles"`)
 }
 
 func TestUploadCopiesPatchToNamedDevbox(t *testing.T) {

@@ -37,7 +37,7 @@ func TestWorkspaceSpecNameGeneratesNameWhenYAMLOmitsIt(t *testing.T) {
 
 func TestNewSpecLoadsYAMLAndOverridesName(t *testing.T) {
 	workspace := t.TempDir()
-	yamlSpec := "name: project-devbox\nimage: custom:image\npurpose: coding\ndotfiles: github.com/acme/dotfiles\nprivate_features:\n  - fast-storage\nsessions:\n  - name: custom\n    command: zsh\n"
+	yamlSpec := "name: project-devbox\nimage: custom:image\npurpose: coding\nenv:\n  - name: MISE_DISABLE_TOOLS\n    value: postgres\nprivate_features:\n  - fast-storage\nsessions:\n  - name: custom\n    command: zsh\n"
 	require.NoError(t, os.WriteFile(filepath.Join(workspace, "devbox.yaml"), []byte(yamlSpec), 0o600))
 
 	spec, err := NewSpec(workspace, "unique-devbox", "github.com/acme/ignored")
@@ -47,7 +47,7 @@ func TestNewSpecLoadsYAMLAndOverridesName(t *testing.T) {
 	require.Equal(t, []Session{{Name: "custom", Command: "zsh"}}, spec.Sessions)
 	require.Equal(t, "custom", spec.SessionName())
 	require.Equal(t, "coding", spec.Purpose)
-	require.Equal(t, "github.com/acme/dotfiles", spec.Dotfiles)
+	require.Equal(t, []EnvironmentVariable{{Name: "MISE_DISABLE_TOOLS", Value: "postgres"}}, spec.Env)
 	require.Equal(t, []string{"fast-storage"}, spec.PrivateFeatures)
 
 	contents, err := json.Marshal(spec)
@@ -57,7 +57,7 @@ func TestNewSpecLoadsYAMLAndOverridesName(t *testing.T) {
 	require.Equal(t, "unique-devbox", got["name"])
 	require.Equal(t, "custom:image", got["image"])
 	require.Equal(t, "coding", got["purpose"])
-	require.Equal(t, "github.com/acme/dotfiles", got["dotfiles"])
+	require.Equal(t, []any{map[string]any{"name": "MISE_DISABLE_TOOLS", "value": "postgres"}}, got["env"])
 	require.Equal(t, []any{"fast-storage"}, got["private_features"])
 	require.NotContains(t, got, "repository")
 }
@@ -68,6 +68,18 @@ func TestNewSpecRejectsUnknownFieldsInsteadOfDroppingThem(t *testing.T) {
 
 	_, err := NewSpec(workspace, "demo", "")
 	require.ErrorContains(t, err, "field future_field not found")
+}
+
+func TestNewSpecRejectsHerdrOptionsInDevboxYAML(t *testing.T) {
+	workspace := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(workspace, "devbox.yaml"),
+		[]byte("image: custom:image\ndotfiles: github.com/acme/dotfiles\n"),
+		0o600,
+	))
+
+	_, err := NewSpec(workspace, "demo", "")
+	require.ErrorContains(t, err, "field dotfiles not found")
 }
 
 func TestNewSpecUsesDefaultsWithoutYAML(t *testing.T) {

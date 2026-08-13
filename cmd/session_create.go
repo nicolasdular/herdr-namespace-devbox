@@ -11,7 +11,7 @@ import (
 type devboxCreationClient interface {
 	patchClient
 	Exists(context.Context, string) (bool, error)
-	Create(context.Context, namespace.Spec) error
+	Create(context.Context, namespace.Spec, namespace.CreateOptions) error
 }
 
 func ensureDevbox(
@@ -20,6 +20,7 @@ func ensureDevbox(
 	localChanges LocalChangesService,
 	workspace string,
 	spec namespace.Spec,
+	createOptions namespace.CreateOptions,
 	uploadLocalChanges bool,
 	output io.Writer,
 ) error {
@@ -44,7 +45,7 @@ func ensureDevbox(
 	}
 
 	fmt.Fprintf(output, "Creating persistent Namespace Devbox %s...\n", spec.Name)
-	if err := client.Create(ctx, spec); err != nil {
+	if err := client.Create(ctx, spec, createOptions); err != nil {
 		return err
 	}
 	if len(patch) == 0 {
