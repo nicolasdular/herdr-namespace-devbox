@@ -223,7 +223,7 @@ func TestManagerCreateFormTogglesLocalChangesAndConfirms(t *testing.T) {
 
 	manager, command := pressManagerKey(t, manager, 'c')
 	require.True(t, manager.showCreateForm)
-	require.Equal(t, createFormUpload, manager.createField)
+	require.Equal(t, createFormSubmit, manager.createField)
 	require.False(t, manager.create)
 	require.NotNil(t, command)
 	require.Contains(t, manager.View().Content, "Inspecting tracked local changes")
@@ -236,13 +236,17 @@ func TestManagerCreateFormTogglesLocalChangesAndConfirms(t *testing.T) {
 	require.Contains(t, manager.View().Content, "Location")
 	require.Contains(t, manager.View().Content, "Closest available")
 	require.Contains(t, manager.View().Content, "3 tracked files changed")
-	require.Contains(t, manager.View().Content, "[ No ]   Yes")
+	require.Contains(t, manager.View().Content, "◉ No   ○ Yes")
+
+	updated, _ = manager.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	manager = updated.(devboxManager)
+	require.Equal(t, createFormUpload, manager.createField)
 
 	manager, _ = pressManagerKey(t, manager, 'y')
 	require.False(t, manager.createForm.UploadLocalChanges)
 	manager, _ = pressManagerKey(t, manager, ' ')
 	require.True(t, manager.createForm.UploadLocalChanges)
-	require.Contains(t, manager.View().Content, "No   [ Yes ]")
+	require.Contains(t, manager.View().Content, "○ No   ◉ Yes")
 
 	updated, _ = manager.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	manager = updated.(devboxManager)
@@ -271,32 +275,61 @@ func TestManagerCreateFormDefaultsToNoAndReturnsToList(t *testing.T) {
 	require.Contains(t, manager.View().Content, "c create")
 }
 
-func TestManagerCreateFormSelectsReadOnlyFieldsWithoutSubmitting(t *testing.T) {
+func TestManagerCreateFormEditsFieldsWithoutSubmitting(t *testing.T) {
 	manager := managerWithDevboxes(t, &managerTestClient{})
 	manager.createInputs = &ActionInputs{Workspace: "/tmp/demo"}
-	manager.createForm = &devboxCreateForm{
-		Plan: DevboxCreatePlan{
-			Name:       "herdr-demo-123",
-			Repository: &namespace.Repository{URL: "github.com/acme/demo"},
-			Image:      "builtin:agents",
-			Size:       "m",
-			Site:       "zrh",
-		},
-		ChangesState:   changesAvailable,
-		TrackedChanges: 1,
-	}
+	form := newDevboxCreateForm(DevboxCreatePlan{
+		Name:       "herdr-demo-123",
+		Repository: &namespace.Repository{URL: "github.com/acme/demo"},
+		Image:      "builtin:agents",
+		Size:       "m",
+		Site:       "zrh",
+	})
+	form.ChangesState = changesAvailable
+	form.TrackedChanges = 1
+	manager.createForm = &form
 
 	manager, _ = pressManagerKey(t, manager, 'c')
 	updated, _ := manager.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	manager = updated.(devboxManager)
+	updated, _ = manager.Update(tea.KeyPressMsg{Code: tea.KeyUp})
+	manager = updated.(devboxManager)
 	require.Equal(t, createFormLocation, manager.createField)
 	require.Contains(t, manager.View().Content, "Location")
-	require.Contains(t, manager.View().Content, "Editing is not available yet")
+	require.Contains(t, manager.View().Content, "enter edit")
 
 	updated, command := manager.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	manager = updated.(devboxManager)
+	require.True(t, manager.createForm.Editing)
+	require.NotNil(t, command)
+
+	manager, _ = pressManagerKey(t, manager, '2')
+	updated, command = manager.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	manager = updated.(devboxManager)
 	require.False(t, manager.create)
+	require.False(t, manager.createForm.Editing)
+	require.Equal(t, "zrh2", manager.createForm.Plan.Site)
+	require.Contains(t, manager.View().Content, "zrh2")
+}
+
+func TestManagerCreateFormKeepsRepositoryReadOnly(t *testing.T) {
+	manager := managerWithDevboxes(t, &managerTestClient{})
+	manager.createInputs = &ActionInputs{Workspace: "/tmp/demo"}
+	form := newDevboxCreateForm(DevboxCreatePlan{
+		Name:       "herdr-demo-123",
+		Repository: &namespace.Repository{URL: "github.com/acme/demo"},
+	})
+	manager.createForm = &form
+	manager.showCreateForm = true
+	manager.createField = createFormRepository
+
+	updated, command := manager.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	manager = updated.(devboxManager)
+
 	require.Nil(t, command)
+	require.False(t, manager.createForm.Editing)
+	require.Equal(t, "github.com/acme/demo", manager.createForm.Plan.Repository.URL)
+	require.Contains(t, manager.View().Content, "Derived from devbox.yaml or Git origin")
 }
 
 func TestManagerCreateRequiresWorkspaceContext(t *testing.T) {

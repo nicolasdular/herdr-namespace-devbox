@@ -143,6 +143,7 @@ func manageDevboxes(ctx context.Context) error {
 			"new-devbox",
 			manager.createForm.Plan.Name,
 			manager.createForm.UploadLocalChanges,
+			&manager.createForm.Plan,
 		)
 	}
 	if manager.open != "" {
@@ -213,6 +214,11 @@ func (m devboxManager) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, command = m.spinner.Update(message)
 		return m, command
 	}
+	if m.showCreateForm && m.createForm != nil && m.createForm.Editing {
+		var command tea.Cmd
+		m.createForm.Input, command = m.createForm.Input.Update(message)
+		return m, command
+	}
 
 	var command tea.Cmd
 	m.list, command = m.list.Update(message)
@@ -228,7 +234,7 @@ func (m devboxManager) updateKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.showCreateForm {
-		return m.updateCreateForm(key)
+		return m.updateCreateForm(message)
 	}
 
 	if m.confirmation != managerOperationNone {
@@ -274,7 +280,7 @@ func (m devboxManager) updateKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.showCreateForm = true
-		m.createField = createFormUpload
+		m.createField = createFormSubmit
 		if !m.createForm.beginChangesInspection() {
 			return m, nil
 		}
@@ -304,7 +310,31 @@ func (m devboxManager) updateKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, command
 }
 
-func (m devboxManager) updateCreateForm(key string) (tea.Model, tea.Cmd) {
+func (m devboxManager) updateCreateForm(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	key := message.String()
+	if m.createForm != nil && m.createForm.Editing {
+		switch key {
+		case "enter", "tab", "shift+tab":
+			if !m.createForm.commitEditing(m.createField) {
+				return m, nil
+			}
+			if key == "tab" {
+				m.moveCreateField(1)
+			} else if key == "shift+tab" {
+				m.moveCreateField(-1)
+			}
+			return m, nil
+		case "esc":
+			m.createForm.cancelEditing()
+			return m, nil
+		case "ctrl+c":
+			return m, tea.Quit
+		}
+		var command tea.Cmd
+		m.createForm.Input, command = m.createForm.Input.Update(message)
+		return m, command
+	}
+
 	canUpload := m.createForm != nil && m.createForm.canUploadLocalChanges()
 	switch key {
 	case "up", "k", "shift+tab":
@@ -317,11 +347,17 @@ func (m devboxManager) updateCreateForm(key string) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		switch m.createField {
+		case createFormName, createFormImage, createFormSize, createFormLocation:
+			return m, m.createForm.beginEditing(m.createField)
 		case createFormUpload:
 			if canUpload {
 				m.createForm.UploadLocalChanges = !m.createForm.UploadLocalChanges
 			}
 		case createFormSubmit:
+			if strings.TrimSpace(m.createForm.Plan.Name) == "" {
+				m.createForm.Error = "Name cannot be empty"
+				return m, nil
+			}
 			m.create = true
 			return m, tea.Quit
 		}

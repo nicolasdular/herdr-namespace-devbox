@@ -41,14 +41,14 @@ func run(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
-		return openDevbox(ctx, inputs, "start-devbox", devboxName, false)
+		return openDevbox(ctx, inputs, "start-devbox", devboxName, false, nil)
 	case "new-devbox":
 		inputs, err := loadActionInputs()
 		if err != nil {
 			return err
 		}
 		devboxName := namespace.NewDevboxName(inputs.Workspace)
-		return openDevbox(ctx, inputs, "new-devbox", devboxName, false)
+		return openDevbox(ctx, inputs, "new-devbox", devboxName, false, nil)
 	case "stop-devbox":
 		inputs, err := loadActionInputs()
 		if err != nil {

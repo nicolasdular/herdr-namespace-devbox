@@ -73,7 +73,7 @@ The popup supports the following keys:
 | `r` | Refresh the list. |
 | `q` or `esc` | Close the popup. |
 
-A workspace is required only to create or open a tab. New Devboxes default to a clean repository checkout. In the creation form, enable **Local changes** to apply staged and unstaged modifications to tracked files before connecting; untracked and ignored files are never uploaded.
+A workspace is required only to create or open a tab. New Devboxes default to a clean repository checkout. The creation form lets you edit the generated name, image, size, and location; the repository remains derived from `devbox.yaml` or the workspace's Git origin. Select an editable field and press `enter`, then press `enter` again to save or `esc` to cancel. Enable **Local changes** to apply staged and unstaged modifications to tracked files before connecting; untracked and ignored files are never uploaded.
 
 ### Stop the workspace's default Devbox
 

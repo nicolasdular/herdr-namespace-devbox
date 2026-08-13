@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -24,6 +25,7 @@ func openDevbox(
 	actionID string,
 	devboxName string,
 	uploadLocalChanges bool,
+	createPlan *DevboxCreatePlan,
 ) error {
 	runner := command.OSRunner{}
 	herdrClient := herdr.New(os.Getenv("HERDR_BIN_PATH"))
@@ -44,6 +46,13 @@ func openDevbox(
 	}
 	if uploadLocalChanges {
 		args = append(args, "--upload-local-changes")
+	}
+	if createPlan != nil {
+		encodedPlan, marshalErr := json.Marshal(createPlan)
+		if marshalErr != nil {
+			return marshalErr
+		}
+		args = append(args, "--create-plan", base64.RawURLEncoding.EncodeToString(encodedPlan))
 	}
 	tab, err := launchDevboxTab(ctx, herdrClient, inputs, tabTitle(inputs.Workspace), devboxName, args...)
 	if err != nil {

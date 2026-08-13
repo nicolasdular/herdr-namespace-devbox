@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -49,6 +51,7 @@ func connectSession(ctx context.Context, args []string) error {
 	dotfiles := flags.String("dotfiles", "", "dotfiles repository configured by Herdr")
 	existing := flags.Bool("existing", false, "connect without loading a workspace Devbox specification")
 	uploadLocalChanges := flags.Bool("upload-local-changes", false, "apply tracked local changes to a newly created Devbox")
+	encodedCreatePlan := flags.String("create-plan", "", "encoded creation form overrides")
 
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -68,6 +71,17 @@ func connectSession(ctx context.Context, args []string) error {
 	spec, err := namespace.NewSpec(*workspace, *name, *repository)
 	if err != nil {
 		return err
+	}
+	if *encodedCreatePlan != "" {
+		encodedPlan, err := base64.RawURLEncoding.DecodeString(*encodedCreatePlan)
+		if err != nil {
+			return fmt.Errorf("decode creation form values: %w", err)
+		}
+		var plan DevboxCreatePlan
+		if err := json.Unmarshal(encodedPlan, &plan); err != nil {
+			return fmt.Errorf("parse creation form values: %w", err)
+		}
+		spec = plan.apply(spec)
 	}
 	createOptions := namespace.CreateOptions{Dotfiles: *dotfiles}
 	localChanges := newGitLocalChangesService(command.OSRunner{})

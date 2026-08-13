@@ -7,14 +7,33 @@ import (
 	"herdr-namespace/internal/namespace"
 )
 
-// DevboxCreatePlan is the resolved, immutable configuration shown by the
-// creation form. Transient UI state intentionally lives elsewhere.
+// DevboxCreatePlan is the resolved configuration edited by the creation form.
+// Transient UI state intentionally lives elsewhere.
 type DevboxCreatePlan struct {
 	Name       string
 	Repository *namespace.Repository
 	Image      string
 	Size       string
 	Site       string
+}
+
+func (p DevboxCreatePlan) apply(spec namespace.Spec) namespace.Spec {
+	spec.Name = p.Name
+	spec.Image = p.Image
+	spec.Size = p.Size
+	if p.Repository == nil || p.Repository.URL == "" {
+		spec.Repository = &namespace.Repository{Disabled: true}
+	} else {
+		repository := *p.Repository
+		spec.Repository = &repository
+	}
+	if p.Site == "" || p.Site == "automatic" {
+		spec.Site = nil
+	} else {
+		site := p.Site
+		spec.Site = &site
+	}
+	return spec
 }
 
 func resolveCreatePlan(
